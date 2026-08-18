@@ -125,11 +125,7 @@ class Vehicle3DAnimatorGL:
         # VBO placeholders
         self.track_vbo = None
         self.boundary_vbos = None
-        self.car_vertices, self.car_normals = car_prism_geometry(
-            self.a_m,
-            self.b_m,
-            visual_scale=self.car_visual_scale,
-        )
+        self._rebuild_car_geometry()
         self.follower_normal_segments = normal_segments_from_poses(
             self.poseF,
             stride=self.diagnostic_stride,
@@ -139,6 +135,18 @@ class Vehicle3DAnimatorGL:
             self.poseL,
             stride=self.diagnostic_stride,
             normal_scale=self.normal_scale,
+        )
+
+    def set_car_visual_scale(self, visual_scale):
+        """Update the visual-only car block scale and rebuild its mesh."""
+        self.car_visual_scale = float(visual_scale)
+        self._rebuild_car_geometry()
+
+    def _rebuild_car_geometry(self):
+        self.car_vertices, self.car_normals = car_prism_geometry(
+            self.a_m,
+            self.b_m,
+            visual_scale=self.car_visual_scale,
         )
         
     def _compute_track_mesh(self, nlat=13):

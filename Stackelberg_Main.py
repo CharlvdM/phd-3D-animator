@@ -18,11 +18,11 @@ import time
 from Stackelberg_HUD import DataProcessor, PrecomputedData, TelemetryDashboard
 
 class IntegratedAnimationFixed:
-    def __init__(self, leader_file, follower_file, track_file):
+    def __init__(self, leader_file, follower_file, track_file, car_visual_scale=1.5):
         self.leader_file = leader_file
         self.follower_file = follower_file
         self.track_file = track_file
-        self.car_visual_scale = 1.5
+        self.car_visual_scale = car_visual_scale
         
         # Shared state
         self.current_frame = 0
@@ -968,7 +968,7 @@ def main():
     parser.add_argument(
         "--car-scale",
         type=float,
-        default=1.5,
+        default=None,
         help="Visual-only scale for the car blocks; does not affect vehicle maths.",
     )
     args = parser.parse_args()
@@ -980,13 +980,17 @@ def main():
             args.leader_file,
             args.follower_file,
             args.track_file,
-            car_scale=args.car_scale,
+            car_scale=args.car_scale if args.car_scale is not None else 1.5,
         ).run()
         return
 
     try:
-        integrated_anim = IntegratedAnimationFixed(args.leader_file, args.follower_file, args.track_file)
-        integrated_anim.car_visual_scale = args.car_scale
+        integrated_anim = IntegratedAnimationFixed(
+            args.leader_file,
+            args.follower_file,
+            args.track_file,
+            car_visual_scale=args.car_scale if args.car_scale is not None else 1.5,
+        )
         integrated_anim.setup_dashboard()
         integrated_anim.animate()
     except Exception as e:

@@ -137,6 +137,17 @@ class MathConsistencyTests(unittest.TestCase):
         self.assertAlmostEqual(np.max(vertices[:, 0]) - np.min(vertices[:, 0]), (1.32 + 1.47) * 1.5)
         self.assertAlmostEqual(np.max(vertices[:, 2]), 0.0)
         self.assertLess(np.min(vertices[:, 2]), 0.0)
+        tiny_vertices, _ = car_prism_geometry(1.32, 1.47, visual_scale=0.01)
+        self.assertAlmostEqual(np.max(tiny_vertices[:, 0]) - np.min(tiny_vertices[:, 0]), (1.32 + 1.47) * 0.01)
+
+    def test_renderer_rebuilds_car_geometry_when_scale_changes(self):
+        animator = Vehicle3DAnimatorGL(LEADER, FOLLOWER, TRACK, car_visual_scale=1.5)
+        initial_width = np.max(animator.car_vertices[:, 0]) - np.min(animator.car_vertices[:, 0])
+
+        animator.set_car_visual_scale(0.01)
+        updated_width = np.max(animator.car_vertices[:, 0]) - np.min(animator.car_vertices[:, 0])
+
+        self.assertLess(updated_width, initial_width / 100.0)
 
         trail = trail_geometry(np.array([1.0, 2.0]), np.array([3.0, 4.0]), np.array([5.0, 6.0]))
         np.testing.assert_allclose(trail, np.array([[1.0, 3.0, 5.1], [2.0, 4.0, 6.1]], dtype=np.float32))
