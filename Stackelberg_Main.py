@@ -947,9 +947,38 @@ class IntegratedAnimationFixed:
 
 
 def main():
-    from phd_3d_animator.app import main as run_single_window_app
+    import argparse
 
-    run_single_window_app()
+    parser = argparse.ArgumentParser(description="Run the Stackelberg animator with HUD.")
+    parser.add_argument("leader_file", help="Leader trajectory .mat file")
+    parser.add_argument("follower_file", help="Follower trajectory .mat file")
+    parser.add_argument(
+        "track_file",
+        nargs="?",
+        default="NASCAR_Track_Monge_v3.mat",
+        help="Track .mat file, default: NASCAR_Track_Monge_v3.mat",
+    )
+    parser.add_argument(
+        "--pygame-only",
+        action="store_true",
+        help="Run the single-window Pygame renderer without the Matplotlib HUD.",
+    )
+    args = parser.parse_args()
+
+    if args.pygame_only:
+        from phd_3d_animator.app import SingleWindowRaceApp
+
+        SingleWindowRaceApp(args.leader_file, args.follower_file, args.track_file).run()
+        return
+
+    try:
+        integrated_anim = IntegratedAnimationFixed(args.leader_file, args.follower_file, args.track_file)
+        integrated_anim.setup_dashboard()
+        integrated_anim.animate()
+    except Exception as e:
+        print(f"Error: {e}")
+        import traceback
+        traceback.print_exc()
 
 
 if __name__ == "__main__":

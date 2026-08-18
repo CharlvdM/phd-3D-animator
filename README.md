@@ -1,12 +1,12 @@
 # PhD 3D Animator
 
 Python/OpenGL visualisation for Stackelberg racing data. The main entry point is
-`Stackelberg_Main.py`, which now launches a single Pygame/OpenGL window instead
-of stacking a borderless Pygame window over a Matplotlib HUD.
+`Stackelberg_Main.py`, which launches the HUD-backed runner. The package entry
+point remains available for a Pygame-only view.
 
 ## Project Files
 
-- `Stackelberg_Main.py` - compatibility CLI that launches the single-window app.
+- `Stackelberg_Main.py` - HUD-backed integrated runner.
 - `phd_3d_animator/` - package modules for data, maths, geometry, rendering,
   and the Pygame app.
 - `Stackelberg_HUD.py` - data processing and dashboard/HUD helpers.
@@ -19,9 +19,9 @@ of stacking a borderless Pygame window over a Matplotlib HUD.
 
 ## Technical Notes
 
-Start with [`docs/README.md`](docs/README.md). The current main path is now a
-single Pygame/OpenGL window. The older Matplotlib HUD code remains in the repo,
-but it is no longer used by `Stackelberg_Main.py`.
+Start with [`docs/README.md`](docs/README.md). The default path keeps the
+Matplotlib HUD visible and positions the Pygame/OpenGL renderer over the central
+viewport. The package entry point is a Pygame-only alternative.
 
 ## Python Environment
 
@@ -80,10 +80,16 @@ Default run, using `NASCAR_Track_Monge_v3.mat` automatically:
 .venv/bin/python Stackelberg_Main.py LeaderFixed.mat FollowerFixed.mat
 ```
 
-Equivalent package entry point:
+Pygame-only package entry point:
 
 ```bash
 .venv/bin/python -m phd_3d_animator LeaderFixed.mat FollowerFixed.mat
+```
+
+Pygame-only through the main script:
+
+```bash
+.venv/bin/python Stackelberg_Main.py LeaderFixed.mat FollowerFixed.mat --pygame-only
 ```
 
 Explicit track file:
@@ -116,9 +122,9 @@ LIBGL_ALWAYS_SOFTWARE=1 .venv/bin/python Stackelberg_Main.py LeaderFixed.mat Fol
 These are the current known issues observed on Pop!_OS:
 
 - Running with the system Python fails with `ModuleNotFoundError: No module named 'pygame'`. Use `.venv/bin/python`.
-- The old Matplotlib/Pygame fake-embedding code still exists in
-  `IntegratedAnimationFixed`, but it is now legacy code rather than the default
-  entry point.
+- The HUD-backed mode still relies on a borderless Pygame window positioned over
+  the central Matplotlib viewport. That keeps the HUD visible, but true widget
+  embedding would still require a Qt-style application rewrite.
 - `VideoWriter.py` imports without OpenCV, but video export requires
   `opencv-python`.
 
