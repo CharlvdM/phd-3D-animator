@@ -1,3 +1,13 @@
+import os
+import sys
+
+# Keep SDL/PyOpenGL on the same Linux display stack. On Pop!_OS/Wayland,
+# PyOpenGL can otherwise choose EGL while Pygame creates an X11/GLX context.
+if sys.platform.startswith("linux"):
+    os.environ.setdefault("SDL_VIDEODRIVER", "x11")
+    os.environ.setdefault("QT_QPA_PLATFORM", "xcb")
+    os.environ.setdefault("PYOPENGL_PLATFORM", "glx")
+
 import numpy as np
 import pygame
 import matplotlib.pyplot as plt
