@@ -15,6 +15,7 @@ from Stackelberg_HUD import DataProcessor
 from Stackleberg_3DAnimator import Vehicle3DAnimatorGL
 from phd_3d_animator.data import RaceData
 from phd_3d_animator.geometry import car_prism_geometry, trail_geometry
+from phd_3d_animator.geometry import normal_segments_from_poses, pose_axis_segments
 
 
 LEADER = "LeaderFixed.mat"
@@ -135,6 +136,13 @@ class MathConsistencyTests(unittest.TestCase):
 
         trail = trail_geometry(np.array([1.0, 2.0]), np.array([3.0, 4.0]), np.array([5.0, 6.0]))
         np.testing.assert_allclose(trail, np.array([[1.0, 3.0, 5.1], [2.0, 4.0, 6.1]], dtype=np.float32))
+
+        pose = np.eye(4)
+        axes = pose_axis_segments(pose, axis_scale=2.0)
+        self.assertEqual(axes.shape, (6, 3))
+        np.testing.assert_allclose(axes[1], [2.0, 0.0, 0.0])
+        normals = normal_segments_from_poses(np.array([pose]), stride=1, normal_scale=3.0)
+        np.testing.assert_allclose(normals, np.array([[0.0, 0.0, 0.0], [0.0, 0.0, 3.0]], dtype=np.float32))
 
 
 if __name__ == "__main__":

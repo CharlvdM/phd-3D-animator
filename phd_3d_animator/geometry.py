@@ -36,3 +36,24 @@ def car_prism_geometry(a_m, b_m, width_m=1.8, height_m=0.6):
 def trail_geometry(x, y, z, z_offset=0.1):
     """Return line-strip vertices for a vehicle trail."""
     return np.column_stack([x, y, np.asarray(z) + z_offset]).astype(np.float32)
+
+
+def pose_axis_segments(pose, axis_scale=4.0):
+    """Return line-segment vertices for x/y/z axes of one display-space pose."""
+    pose = np.asarray(pose, dtype=float)
+    origin = pose[:3, 3]
+    axes = pose[:3, :3].T
+    segments = []
+    for axis in axes:
+        segments.extend([origin, origin + axis * axis_scale])
+    return np.array(segments, dtype=np.float32)
+
+
+def normal_segments_from_poses(poses, stride=80, normal_scale=6.0):
+    """Return sparse surface-normal line segments from display-space poses."""
+    segments = []
+    for pose in poses[::stride]:
+        origin = pose[:3, 3]
+        normal = pose[:3, 2]
+        segments.extend([origin, origin + normal * normal_scale])
+    return np.array(segments, dtype=np.float32)

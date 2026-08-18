@@ -26,7 +26,12 @@ from animator_math import (
     unscale_vehicle_states,
     vehicle_pose_matrix,
 )
-from phd_3d_animator.geometry import car_prism_geometry, trail_geometry
+from phd_3d_animator.geometry import (
+    car_prism_geometry,
+    normal_segments_from_poses,
+    pose_axis_segments,
+    trail_geometry,
+)
 
 class Vehicle3DAnimatorGL:
     def __init__(self, leader_file, follower_file, track_file):
@@ -111,11 +116,25 @@ class Vehicle3DAnimatorGL:
         # Add animation speed control
         self.animation_speed = 1.0  # 1.0 = normal speed
         self.frame_accumulator = 0.0
+        self.show_diagnostics = False
+        self.diagnostic_stride = 80
+        self.axis_scale = 4.0
+        self.normal_scale = 6.0
 
         # VBO placeholders
         self.track_vbo = None
         self.boundary_vbos = None
         self.car_vertices, self.car_normals = car_prism_geometry(self.a_m, self.b_m)
+        self.follower_normal_segments = normal_segments_from_poses(
+            self.poseF,
+            stride=self.diagnostic_stride,
+            normal_scale=self.normal_scale,
+        )
+        self.leader_normal_segments = normal_segments_from_poses(
+            self.poseL,
+            stride=self.diagnostic_stride,
+            normal_scale=self.normal_scale,
+        )
         
     def _compute_track_mesh(self, nlat=13):
         """Compute 3D track mesh"""
@@ -307,6 +326,8 @@ class Vehicle3DAnimatorGL:
 
         self.render_trail(xF_trail, yF_trail, zF_trail, (1, 0, 0))
         self.render_trail(xL_trail, yL_trail, zL_trail, (0, 0, 1))
+        if self.show_diagnostics:
+            self.render_diagnostics()
 
         self.render_car(
             self.xF[self.current_frame],
@@ -465,6 +486,34 @@ class Vehicle3DAnimatorGL:
         self.start_line_vbo.unbind()
         glDisableClientState(GL_VERTEX_ARRAY)
         glEnable(GL_LIGHTING)
+
+    def render_line_segments(self, vertices, color, line_width=2):
+        """Render independent diagnostic line segments."""
+        if len(vertices) == 0:
+            return
+        glDisable(GL_LIGHTING)
+        glColor3f(*color)
+        glLineWidth(line_width)
+        glEnableClientState(GL_VERTEX_ARRAY)
+        glVertexPointer(3, GL_FLOAT, 0, vertices)
+        glDrawArrays(GL_LINES, 0, len(vertices))
+        glDisableClientState(GL_VERTEX_ARRAY)
+        glLineWidth(1)
+        glEnable(GL_LIGHTING)
+
+    def render_pose_axes(self, pose, line_width=3):
+        """Render local x/y/z axes for a display-space pose."""
+        axes = pose_axis_segments(pose, axis_scale=self.axis_scale)
+        self.render_line_segments(axes[0:2], (1.0, 0.0, 0.0), line_width=line_width)
+        self.render_line_segments(axes[2:4], (0.0, 0.65, 0.0), line_width=line_width)
+        self.render_line_segments(axes[4:6], (0.0, 0.25, 1.0), line_width=line_width)
+
+    def render_diagnostics(self):
+        """Render body-axis and surface-normal diagnostic overlays."""
+        self.render_pose_axes(self.poseF[self.current_frame])
+        self.render_pose_axes(self.poseL[self.current_frame])
+        self.render_line_segments(self.follower_normal_segments, (1.0, 0.45, 0.45), line_width=1)
+        self.render_line_segments(self.leader_normal_segments, (0.45, 0.45, 1.0), line_width=1)
     
     def render_car(self, x, y, z, angle, banking_angle, color, pose_matrix=None):
         """Render a car in display space."""
@@ -643,6 +692,7 @@ class Vehicle3DAnimatorGL:
         print("Scroll (free mode): Zoom")
         print("WASD/QE (free mode): Pan")
         print("R (free mode): Reset camera")
+        print("V: Toggle diagnostics")
         print("ESC: Exit")
         
         while running:
@@ -655,6 +705,9 @@ class Vehicle3DAnimatorGL:
                     elif event.key == pygame.K_SPACE:
                         self.playing = not self.playing
                         print(f"{'Playing' if self.playing else 'Paused'}")
+                    elif event.key == pygame.K_v:
+                        self.show_diagnostics = not self.show_diagnostics
+                        print(f"Diagnostics {'on' if self.show_diagnostics else 'off'}")
                     elif event.key == pygame.K_1:
                         self.camera_mode = 'follow'
                         print("Follow camera mode")
