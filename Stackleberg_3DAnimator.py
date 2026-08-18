@@ -1,13 +1,3 @@
-import os
-import sys
-
-# Keep SDL/PyOpenGL on the same Linux display stack. This avoids PyOpenGL
-# looking for an EGL context while Pygame has created an X11/GLX context.
-if sys.platform.startswith("linux"):
-    os.environ.setdefault("SDL_VIDEODRIVER", "x11")
-    os.environ.setdefault("QT_QPA_PLATFORM", "xcb")
-    os.environ.setdefault("PYOPENGL_PLATFORM", "glx")
-
 import numpy as np
 import pygame
 from pygame.locals import *

@@ -107,6 +107,9 @@ class HeadlessAnimationRecorder:
     def setup_headless_pygame(self):
         """Setup Pygame/OpenGL in headless mode"""
         try:
+            if sys.platform.startswith("linux"):
+                os.environ.setdefault("PYOPENGL_PLATFORM", "glx")
+
             from Stackleberg_3DAnimator import Vehicle3DAnimatorGL
 
             print("Setting up OpenGL...")

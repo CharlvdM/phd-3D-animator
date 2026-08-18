@@ -1,12 +1,8 @@
 import os
 import sys
 
-# Keep SDL/PyOpenGL on the same Linux display stack. On Pop!_OS/Wayland,
-# PyOpenGL can otherwise choose EGL while Pygame creates an X11/GLX context.
 if sys.platform.startswith("linux"):
-    os.environ.setdefault("SDL_VIDEODRIVER", "x11")
     os.environ.setdefault("QT_QPA_PLATFORM", "xcb")
-    os.environ.setdefault("PYOPENGL_PLATFORM", "glx")
 
 import numpy as np
 import pygame
@@ -277,6 +273,10 @@ class IntegratedAnimationFixed:
     def _init_pygame(self):
         """Initialize Pygame with dynamic positioning"""
         try:
+            if sys.platform.startswith("linux"):
+                os.environ.setdefault("SDL_VIDEODRIVER", "x11")
+                os.environ.setdefault("PYOPENGL_PLATFORM", "glx")
+
             from Stackleberg_3DAnimator import Vehicle3DAnimatorGL
             
             print("Initializing Pygame (borderless window)...")
@@ -951,7 +951,7 @@ class IntegratedAnimationFixed:
 def main():
     import argparse
 
-    parser = argparse.ArgumentParser(description="Run the Stackelberg animator with HUD.")
+    parser = argparse.ArgumentParser(description="Run the Qt Stackelberg animator HUD.")
     parser.add_argument("leader_file", help="Leader trajectory .mat file")
     parser.add_argument("follower_file", help="Follower trajectory .mat file")
     parser.add_argument(
@@ -965,6 +965,18 @@ def main():
         action="store_true",
         help="Run the single-window Pygame renderer without the Matplotlib HUD.",
     )
+    parser.add_argument(
+        "--legacy-hud",
+        action="store_true",
+        help="Run the old Matplotlib HUD with a borderless Pygame overlay window.",
+    )
+    parser.add_argument("--fps", type=int, default=30)
+    parser.add_argument(
+        "--camera",
+        choices=["follow", "rear_view", "top_down", "overview", "free"],
+        default="follow",
+    )
+    parser.add_argument("--diagnostics", action="store_true")
     parser.add_argument(
         "--car-scale",
         type=float,
@@ -981,8 +993,30 @@ def main():
             args.follower_file,
             args.track_file,
             car_scale=args.car_scale if args.car_scale is not None else 1.5,
+            fps=args.fps,
+            camera_mode=args.camera,
+            diagnostics=args.diagnostics,
         ).run()
         return
+
+    if not args.legacy_hud:
+        from phd_3d_animator.qt_app import QtRaceWindow, configure_surface_format
+        from PySide6.QtWidgets import QApplication
+
+        configure_surface_format()
+        app = QApplication.instance() or QApplication(sys.argv[:1])
+        window = QtRaceWindow(
+            args.leader_file,
+            args.follower_file,
+            args.track_file,
+            fps=args.fps,
+            camera_mode=args.camera,
+            diagnostics=args.diagnostics,
+            car_scale=args.car_scale if args.car_scale is not None else 1.5,
+        )
+        window.resize(1800, 1000)
+        window.show()
+        sys.exit(app.exec())
 
     try:
         integrated_anim = IntegratedAnimationFixed(

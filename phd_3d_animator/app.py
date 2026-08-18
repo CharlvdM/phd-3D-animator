@@ -3,10 +3,16 @@
 from __future__ import annotations
 
 import argparse
+import os
+import sys
 
 import numpy as np
 import pygame
 from pygame.locals import DOUBLEBUF, OPENGL, RESIZABLE
+
+if sys.platform.startswith("linux"):
+    os.environ.setdefault("SDL_VIDEODRIVER", "x11")
+    os.environ.setdefault("PYOPENGL_PLATFORM", "glx")
 
 from .rendering import Vehicle3DAnimatorGL
 

@@ -1,16 +1,18 @@
 # PhD 3D Animator
 
 Python/OpenGL visualisation for Stackelberg racing data. The main entry point is
-`Stackelberg_Main.py`, which launches the HUD-backed runner. The package entry
-point remains available for a Pygame-only view.
+`Stackelberg_Main.py`, which launches a PySide6 HUD with a real `QOpenGLWidget`
+3D viewport in the centre. Pygame-only and legacy Matplotlib HUD modes remain
+available as explicit fallbacks.
 
 ## Project Files
 
-- `Stackelberg_Main.py` - HUD-backed integrated runner.
+- `Stackelberg_Main.py` - compatibility CLI; Qt HUD by default.
 - `phd_3d_animator/` - package modules for data, maths, geometry, rendering,
-  and the Pygame app.
+  the Qt app, and the Pygame fallback app.
 - `Stackelberg_HUD.py` - data processing and dashboard/HUD helpers.
-- `Stackleberg_3DAnimator.py` - Pygame/OpenGL 3D renderer.
+- `Stackleberg_3DAnimator.py` - OpenGL 3D renderer, still usable from Pygame
+  and now reused by the Qt widget.
 - `docs/` - technical notes, architecture audit, mathematical audit, and
   improvement backlog.
 - `LeaderFixed.mat` - leader trajectory data.
@@ -20,8 +22,8 @@ point remains available for a Pygame-only view.
 ## Technical Notes
 
 Start with [`docs/README.md`](docs/README.md). The default path keeps the
-Matplotlib HUD visible and positions the Pygame/OpenGL renderer over the central
-viewport. The package entry point is a Pygame-only alternative.
+HUD and 3D scene in one Qt window. The old Matplotlib/Pygame overlay path is
+preserved only for comparison and debugging.
 
 ## Python Environment
 
@@ -62,6 +64,7 @@ The project currently depends on:
 - `pygame`
 - `PyOpenGL`
 - `PyOpenGL_accelerate` if available
+- `PySide6`
 
 If the virtual environment needs to be recreated:
 
@@ -74,13 +77,13 @@ python3 -m venv .venv
 
 ## Running
 
-Default run, using `NASCAR_Track_Monge_v3.mat` automatically:
+Default Qt HUD run, using `NASCAR_Track_Monge_v3.mat` automatically:
 
 ```bash
 .venv/bin/python Stackelberg_Main.py LeaderFixed.mat FollowerFixed.mat
 ```
 
-Pygame-only package entry point:
+The package entry point uses the same Qt HUD:
 
 ```bash
 .venv/bin/python -m phd_3d_animator LeaderFixed.mat FollowerFixed.mat
@@ -90,6 +93,12 @@ Pygame-only through the main script:
 
 ```bash
 .venv/bin/python Stackelberg_Main.py LeaderFixed.mat FollowerFixed.mat --pygame-only
+```
+
+Legacy Matplotlib HUD with a borderless Pygame overlay:
+
+```bash
+.venv/bin/python Stackelberg_Main.py LeaderFixed.mat FollowerFixed.mat --legacy-hud
 ```
 
 The 3D cars are deliberately scaled up slightly for visibility. The default
@@ -108,8 +117,10 @@ Explicit track file:
 
 Do not literally pass `path/to/track.mat`; that was only a placeholder.
 
-The code defaults Linux runs to SDL/X11 and PyOpenGL/GLX before importing
-OpenGL. If a future display backend problem appears, test software OpenGL:
+The default Qt path uses Qt's OpenGL context. The Pygame-only and legacy HUD
+paths scope SDL/X11 and PyOpenGL/GLX configuration to the Pygame setup code so
+they do not interfere with Qt. If a future display backend problem appears,
+test software OpenGL:
 
 ```bash
 LIBGL_ALWAYS_SOFTWARE=1 .venv/bin/python Stackelberg_Main.py LeaderFixed.mat FollowerFixed.mat
@@ -118,7 +129,7 @@ LIBGL_ALWAYS_SOFTWARE=1 .venv/bin/python Stackelberg_Main.py LeaderFixed.mat Fol
 ## Controls
 
 - Space: play/pause.
-- `ESC` or `Q`: close the app.
+- `ESC`: close the app.
 - `1` to `5`: camera modes in the Pygame window.
 - `V`: toggle body-axis and surface-normal diagnostics.
 - Mouse drag: rotate in free camera mode.
@@ -130,13 +141,14 @@ LIBGL_ALWAYS_SOFTWARE=1 .venv/bin/python Stackelberg_Main.py LeaderFixed.mat Fol
 These are the current known issues observed on Pop!_OS:
 
 - Running with the system Python fails with `ModuleNotFoundError: No module named 'pygame'`. Use `.venv/bin/python`.
-- The HUD-backed mode still relies on a borderless Pygame window positioned over
-  the central Matplotlib viewport. That keeps the HUD visible, but true widget
-  embedding would still require a Qt-style application rewrite.
+- The legacy HUD mode still relies on a borderless Pygame window positioned over
+  the central Matplotlib viewport. Use the default Qt HUD for a real embedded
+  OpenGL viewport.
 - `VideoWriter.py` imports without OpenCV, but video export requires
   `opencv-python`.
 
 ## Next Debugging Target
 
-The next cleanup target is building a richer HUD overlay inside the single
-Pygame window, then retiring or moving the legacy Matplotlib dashboard.
+The next cleanup target is moving richer plots into Qt-native widgets,
+`FigureCanvasQTAgg`, or pyqtgraph, then retiring the legacy Matplotlib/Pygame
+overlay.

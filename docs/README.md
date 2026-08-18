@@ -5,8 +5,8 @@ Stackelberg racing visualisation.
 
 ## Documents
 
-- [Architecture](architecture.md): current structure, why the Pygame window does
-  not sit reliably inside the HUD, and the broad architecture changes needed.
+- [Architecture](architecture.md): current structure, the new Qt/OpenGL widget
+  shell, and the remaining architecture changes needed.
 - [Mathematical Model Audit](mathematical-model-audit.md): comparison between
   the Python visualiser and the PhD/MATLAB Monge-track vehicle model.
 - [Improvement Backlog](improvement-backlog.md): prioritised fixes and
@@ -20,8 +20,8 @@ telemetry, tyre-force plots, and a Pygame/OpenGL 3D scene.
 
 The most important current conclusions are:
 
-- The default app now uses a single Pygame/OpenGL window, so it no longer
-  depends on fake Matplotlib/Pygame embedding.
+- The default app now uses a single PySide6 window with a `QOpenGLWidget`, so it
+  no longer depends on fake Matplotlib/Pygame embedding.
 - Coordinate conversion is centralised in `animator_math.py`, and new code can
   use typed `RaceData`, `TrackSurface`, and `VehicleTrajectory` objects.
 - The 2D path mapping `x = xc - n sin(psi)`, `y = yc + n cos(psi)` matches the

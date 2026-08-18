@@ -4,6 +4,7 @@ matplotlib
 pygame
 PyOpenGL
 PyOpenGL_accelerate
+PySide6
 
 # Optional, only needed for VideoWriter.py video export.
 opencv-python

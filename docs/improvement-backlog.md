@@ -29,21 +29,25 @@
 1. Done for the default path: choose one application framework.
    - Recommended: PySide6/PyQt6 with a `QOpenGLWidget` and either Qt-native HUD
      widgets, pyqtgraph, or embedded Matplotlib.
-   - Implemented simpler alternative: Pygame-only app shell.
+   - Implemented: PySide6 HUD shell with a central `QOpenGLWidget`.
 
 2. Done for the default path: remove the fake embedding.
-   - `Stackelberg_Main.py` now launches the single-window package app.
+   - `Stackelberg_Main.py` now launches the Qt HUD by default.
+   - `python -m phd_3d_animator` uses the same Qt entry point.
+   - Pygame-only remains available through `--pygame-only`.
    - The old fake-embedded Matplotlib/Pygame class remains as legacy code.
    - Still needed: decide whether to delete the legacy class or move it behind
      an explicit legacy entry point.
 
-3. Centralise playback state.
+3. Partly done: centralise playback state.
    - One clock.
    - One current frame.
    - One play/pause state.
    - One input routing layer.
+   - The Qt default path now has one `QTimer` and one renderer frame index, but
+     remaining legacy classes still own separate playback code.
 
-4. Make resize behaviour deliberate.
+4. Done for the Qt default path: make resize behaviour deliberate.
    - The 3D viewport should resize with the app window.
    - The camera projection should update from the actual viewport aspect ratio.
 

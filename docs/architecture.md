@@ -2,13 +2,17 @@
 
 ## Current Entry Points
 
-- `Stackelberg_Main.py`: compatibility CLI. It now launches the package
-  single-window Pygame/OpenGL app.
-- `phd_3d_animator/app.py`: single-window Pygame application shell and event
-  loop.
+- `Stackelberg_Main.py`: compatibility CLI. It now launches the Qt HUD by
+  default, with Pygame-only and legacy Matplotlib HUD modes behind explicit
+  flags.
+- `phd_3d_animator/qt_app.py`: PySide6 main window, side HUD panels, playback
+  timer, controls, and central `QOpenGLWidget` viewport.
+- `phd_3d_animator/app.py`: single-window Pygame fallback application shell and
+  event loop.
 - `phd_3d_animator/data.py`: typed `TrackSurface`, `VehicleTrajectory`, and
   `RaceData` objects.
-- `Stackleberg_3DAnimator.py`: standalone Pygame/OpenGL renderer.
+- `Stackleberg_3DAnimator.py`: OpenGL renderer reused by Qt, Pygame-only, and
+  export paths.
 - `Stackelberg_HUD.py`: MATLAB data loading, telemetry calculation, Matplotlib
   HUD widgets, and precomputed 2D animation data. This is now legacy/standalone
   dashboard code rather than the default app shell.
@@ -25,7 +29,7 @@ flowchart LR
     D["Track .mat file"] --> C
     B --> E["PrecomputedData"]
     E --> F["Matplotlib HUD"]
-    C --> G["Pygame/OpenGL 3D window"]
+    C --> G["QOpenGLWidget or Pygame/OpenGL 3D viewport"]
     F --> H["FuncAnimation update loop"]
     H --> G
 ```
@@ -37,7 +41,7 @@ flowchart LR
     A["Leader/Follower .mat files"] --> B["RaceData"]
     D["Track .mat file"] --> B
     B --> C["Vehicle3DAnimatorGL"]
-    C --> E["Single Pygame/OpenGL window"]
+    C --> E["Qt QOpenGLWidget viewport"]
 ```
 
 The legacy HUD and renderer classes still keep some older loading code for
@@ -60,8 +64,8 @@ Matplotlib dashboard was only a placeholder axes:
 So the Pygame scene was not a child widget of the HUD. It was a second top-level
 window that happened to be borderless and positioned over the centre panel.
 
-The default CLI no longer uses that architecture. It now opens one Pygame window
-and lets the renderer own all OpenGL drawing.
+The default CLI no longer uses that architecture. It now opens one Qt main
+window and places the renderer inside a real `QOpenGLWidget`.
 
 This is fragile because the location depends on:
 
@@ -107,26 +111,23 @@ The data layer should load each `.mat` file once and produce explicit objects:
 
 ### 2. Use One Windowing Framework
 
-The first clean fix is now implemented: stop mixing a Matplotlib top-level
-window with a separate Pygame top-level window.
-
-Further recommended route if a rich research GUI is needed:
-
-- Use PySide6/PyQt6 as the application shell.
-- Put the 3D scene in a `QOpenGLWidget`.
-- Put HUD plots in Qt widgets, a Matplotlib `FigureCanvasQTAgg`, or pyqtgraph.
-- Drive everything from one timer and one playback state.
+The clean fix is now implemented for the default path: stop mixing a Matplotlib
+top-level window with a separate Pygame top-level window.
 
 Implemented route:
 
-- Make Pygame the only window.
-- Render the 3D scene in that single window.
-- Next: render the HUD in Pygame/OpenGL, possibly with ImGui or a lightweight
-  UI overlay.
+- Use PySide6/PyQt6 as the application shell.
+- Put the 3D scene in a `QOpenGLWidget`.
+- Drive everything from one timer and one playback state.
+- Keep Pygame-only and legacy Matplotlib/Pygame modes as explicit fallbacks.
 
-The Qt route is still better for research tooling because it gives native docking,
-menus, file dialogs, resizing, and robust widget layout. The Pygame-only route
-is simpler if the goal is just a robust animation/video viewer.
+Still needed for richer research tooling:
+
+- Move detailed HUD plots into Qt widgets, a Matplotlib `FigureCanvasQTAgg`, or
+  pyqtgraph.
+- Add native file-open, export, and screenshot actions.
+- Retire the legacy Matplotlib/Pygame overlay once the Qt HUD has feature
+  parity.
 
 ### 3. Isolate Coordinate Frames
 
