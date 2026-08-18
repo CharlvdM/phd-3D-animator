@@ -716,6 +716,8 @@ class TelemetryDashboard:
         
     def _on_scroll(self, event):
         """Handle scroll events for zoom"""
+        if self.animation is None:
+            return
         if event.button == "up":
             self.animation.zoom_level[0] = max(5, self.animation.zoom_level[0] * 0.9)
         elif event.button == "down":
@@ -743,9 +745,9 @@ class TelemetryDashboard:
     def _update_all(self, frame_idx):
         """Update all dashboard components"""
         data_idx = frame_idx
-        
+
         # Update main animation
-        animation_artists = self.animation.update(frame_idx)
+        animation_artists = self.animation.update(frame_idx) if self.animation is not None else []
         
         # Update minimap
         xF, yF, xL, yL = self.precomputed_data.minimap_data[data_idx]

@@ -1011,9 +1011,9 @@ class IntegratedAnimationFixed:
 
 def main():
     import sys
-    
+
     if len(sys.argv) < 3:
-        print("Usage: python integrated_animation_fixed.py <leader.mat> <follower.mat> [track.mat]")
+        print("Usage: python Stackelberg_Main.py <leader.mat> <follower.mat> [track.mat]")
         sys.exit(1)
     
     leader_file = sys.argv[1]
@@ -1034,8 +1034,8 @@ def main():
 if __name__ == "__main__":
     main()
 
-# Usage: 
-# python StackelBerg_Main.py LeaderData.mat FollowerData.mat TrackData.mat
+# Usage:
+# python Stackelberg_Main.py LeaderData.mat FollowerData.mat TrackData.mat
 # eg:
-# python StackelBerg_Main.py Leader.mat SimResult.mat NASCAR_Track_Monge_v3.
+# python Stackelberg_Main.py Leader.mat SimResult.mat NASCAR_Track_Monge_v3.mat
 
