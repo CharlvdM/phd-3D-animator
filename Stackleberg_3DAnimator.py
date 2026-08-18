@@ -296,6 +296,7 @@ class Vehicle3DAnimatorGL:
         glEnable(GL_NORMALIZE)
         
         glMatrixMode(GL_PROJECTION)
+        glLoadIdentity()
         gluPerspective(45, width/height, 1.0, 10000.0)
         glMatrixMode(GL_MODELVIEW)
         
@@ -305,8 +306,10 @@ class Vehicle3DAnimatorGL:
         glEnable(GL_BLEND)
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
 
-        self.build_track_vbo()
-        self.build_boundary_vbos()
+        if not hasattr(self, "track_vertex_vbo") or self.track_vertex_vbo is None:
+            self.build_track_vbo()
+        if not hasattr(self, "inner_boundary_vbo") or self.inner_boundary_vbo is None:
+            self.build_boundary_vbos()
 
     def render_frame(self, frame_idx=None, handle_input=False):
         """Render one frame into the current OpenGL context."""
