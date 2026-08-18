@@ -15,7 +15,17 @@ from OpenGL.GL import *
 from OpenGL.GLU import *
 from OpenGL.arrays import vbo
 from scipy.io import loadmat
-from scipy.ndimage import uniform_filter1d
+from animator_math import (
+    display_pose_from_model_pose,
+    model_to_display_points,
+    monge_dz_dn,
+    monge_dz_ds,
+    monge_height,
+    physical_wheelbase,
+    road_xy,
+    unscale_vehicle_states,
+    vehicle_pose_matrix,
+)
 
 class Vehicle3DAnimatorGL:
     def __init__(self, leader_file, follower_file, track_file):
@@ -35,11 +45,12 @@ class Vehicle3DAnimatorGL:
         # Vehicle dimensions
         self.a = auxdata.a
         self.b = auxdata.b
+        self.a_m, self.b_m = physical_wheelbase(auxdata)
         self.rwTrack = auxdata.track.rw / self.lengthscale
-        
+
         # Track centerline
         self.xc = auxdata.track.xc
-        self.yc = auxdata.track.yc * -1
+        self.yc = auxdata.track.yc
         self.psiTrack = auxdata.track.psi
         self.sTrack = auxdata.track.s / self.lengthscale
 
@@ -64,6 +75,11 @@ class Vehicle3DAnimatorGL:
         self.z1 = data['z1']
         self.z2 = data['z2']
         self.z3 = data['z3']
+        self.dpsi_ds = data['dpsi']
+        self.dz0_ds = data['dz0']
+        self.dz1_ds = data['dz1']
+        self.dz2_ds = data['dz2']
+        self.dz3_ds = data['dz3']
         
         # Compute track mesh
         self.xMesh, self.yMesh, self.zMesh, self.n_spaced = self._compute_track_mesh(nlat=13)
@@ -110,16 +126,23 @@ class Vehicle3DAnimatorGL:
             n_spaced = np.linspace(-0.5, 0.5, nlat) * rw_scalar
             n_spaced = np.tile(n_spaced, (len(self.s), 1))
         
-        zMesh = np.zeros((len(self.s), nlat))
+        zMesh_model = np.zeros((len(self.s), nlat))
         for k in range(nlat):
             nk = n_spaced[:, k]
-            zMesh[:, k] = self.z0 + self.z1 * nk + self.z2 * nk**2 + self.z3 * nk**3
-        
-        xMesh = self.track_xc[:, np.newaxis] - n_spaced * np.sin(self.psi[:, np.newaxis])
-        yMesh = self.track_yc[:, np.newaxis] + n_spaced * np.cos(self.psi[:, np.newaxis])
-        
-        yMesh = -yMesh  # SAE coordinate transform
-        zMesh = -zMesh * self.z_scale  # SAE coordinate transform
+            zMesh_model[:, k] = monge_height(self.z0, self.z1, self.z2, self.z3, nk)
+
+        xMesh_model, yMesh_model = road_xy(
+            self.track_xc[:, np.newaxis],
+            self.track_yc[:, np.newaxis],
+            self.psi[:, np.newaxis],
+            n_spaced,
+        )
+        xMesh, yMesh, zMesh = model_to_display_points(
+            xMesh_model, yMesh_model, zMesh_model, z_scale=self.z_scale
+        )
+        self.xMesh_model = xMesh_model
+        self.yMesh_model = yMesh_model
+        self.zMesh_model = zMesh_model
 
         return xMesh, yMesh, zMesh, n_spaced
     
@@ -128,165 +151,99 @@ class Vehicle3DAnimatorGL:
         # Leader states
         self.sL = self.leader["output"].result.interpsolution.phase.time / self.lengthscale
         statesL = self.leader["output"].result.interpsolution.phase.state
-        
-        self.nL = statesL[:, 0] / self.lengthscale
-        self.xiL = statesL[:, 1]
-        self.vL = statesL[:, 2] / self.velscale
-        self.tL = statesL[:, 8] / self.timescale
+        leader = unscale_vehicle_states(statesL, self.lengthscale, self.velscale, self.timescale)
+        self.nL = leader["n"]
+        self.xiL = leader["xi"]
+        self.tL = leader["t"]
         
         # Follower states
         self.sF = self.follower["output"].result.interpsolution.phase.time / self.lengthscale
         statesF = self.follower["output"].result.interpsolution.phase.state
-        
-        self.nF = statesF[:, 0] / self.lengthscale
-        self.xiF = statesF[:, 1]
-        self.vF = statesF[:, 2] / self.velscale
-        self.tF = statesF[:, 8] / self.timescale
+        follower = unscale_vehicle_states(statesF, self.lengthscale, self.velscale, self.timescale)
+        self.nF = follower["n"]
+        self.xiF = follower["xi"]
+        self.tF = follower["t"]
         
         print(f"Leader: {len(self.sL)} points, Follower: {len(self.sF)} points")
     
-    def get_elevation_at_xy(self, x, y):
-        """Get track elevation at world coordinates"""
-        x = np.asarray(x)
-        y = np.asarray(y)
-        
-        def interpolate_point(xi, yi):
-            '''bilinear interpolation'''
-            distances = (self.xMesh - xi)**2 + (self.yMesh - yi)**2
-            min_idx = np.unravel_index(np.argmin(distances), distances.shape)
-            i_closest, j_closest = min_idx
-            
-            search_radius = 3
-            i_min = max(0, i_closest - search_radius)
-            i_max = min(self.xMesh.shape[0] - 1, i_closest + search_radius)
-            j_min = max(0, j_closest - search_radius)
-            j_max = min(self.yMesh.shape[1] - 1, j_closest + search_radius)
-            
-            best_zi = None
-            min_extrapolation = float('inf')
-            
-            for i in range(i_min, i_max):
-                for j in range(j_min, j_max):
-                    x00, y00, z00 = self.xMesh[i, j], self.yMesh[i, j], self.zMesh[i, j]
-                    x01, y01, z01 = self.xMesh[i, j+1], self.yMesh[i, j+1], self.zMesh[i, j+1]
-                    x10, y10, z10 = self.xMesh[i+1, j], self.yMesh[i+1, j], self.zMesh[i+1, j]
-                    x11, y11, z11 = self.xMesh[i+1, j+1], self.yMesh[i+1, j+1], self.zMesh[i+1, j+1]
-                    
-                    u = ((xi - x00) * (x10 - x00) + (yi - y00) * (y10 - y00)) / \
-                        ((x10 - x00)**2 + (y10 - y00)**2 + 1e-10)
-                    v = ((xi - x00) * (x01 - x00) + (yi - y00) * (y01 - y00)) / \
-                        ((x01 - x00)**2 + (y01 - y00)**2 + 1e-10)
-                    
-                    u_clamped = np.clip(u, 0, 1)
-                    v_clamped = np.clip(v, 0, 1)
-                    extrapolation = abs(u - u_clamped) + abs(v - v_clamped)
-                    
-                    zi = (1 - u_clamped) * (1 - v_clamped) * z00 + \
-                         u_clamped * (1 - v_clamped) * z10 + \
-                         (1 - u_clamped) * v_clamped * z01 + \
-                         u_clamped * v_clamped * z11
-                    
-                    if extrapolation < min_extrapolation:
-                        min_extrapolation = extrapolation
-                        best_zi = zi
-            
-            if best_zi is not None:
-                return best_zi
-            return self.zMesh[i_closest, j_closest]
-        
-        if x.ndim == 0:
-            return interpolate_point(float(x), float(y))
-        else:
-            z = np.zeros_like(x, dtype=float)
-            for i, (xi, yi) in enumerate(zip(x, y)):
-                z[i] = interpolate_point(float(xi), float(yi))
-            return z
+    def get_surface_values_at_sn(self, s, n):
+        """Evaluate Monge height and derivatives at track coordinates."""
+        z0 = np.interp(s, self.s, self.z0)
+        z1 = np.interp(s, self.s, self.z1)
+        z2 = np.interp(s, self.s, self.z2)
+        z3 = np.interp(s, self.s, self.z3)
+        dz0 = np.interp(s, self.s, self.dz0_ds)
+        dz1 = np.interp(s, self.s, self.dz1_ds)
+        dz2 = np.interp(s, self.s, self.dz2_ds)
+        dz3 = np.interp(s, self.s, self.dz3_ds)
+        dpsi_ds = np.interp(s, self.s, self.dpsi_ds)
+        z = monge_height(z0, z1, z2, z3, n)
+        dz_dn = monge_dz_dn(z1, z2, z3, n)
+        dz_ds = monge_dz_ds(dz0, dz1, dz2, dz3, n)
+        return z, dz_ds, dz_dn, dpsi_ds
     
     def get_banking_angle_at_sn(self, s, n):
         """Get banking angle at track coordinates (s,n)"""
-        s = np.asarray(s)
-        n = np.asarray(n)
+        _, _, dz_dn, _ = self.get_surface_values_at_sn(s, n)
+        return np.arctan(dz_dn * self.z_scale)
 
-        if s.ndim == 0:
-            z1 = np.interp(s, self.s, self.z1)
-            z2 = np.interp(s, self.s, self.z2)
-            z3 = np.interp(s, self.s, self.z3)
-            # Apply z-scaling to the slope coefficients
-            z1_scaled = z1 * self.z_scale
-            z2_scaled = z2 * self.z_scale
-            z3_scaled = z3 * self.z_scale
-            return np.arctan(z1_scaled + 2*z2_scaled*n + 3*z3_scaled*n**2)
-        else:
-            banking_rad = np.zeros_like(s)
-            for i, (si, ni) in enumerate(zip(s, n)):
-                z1 = np.interp(si, self.s, self.z1)
-                z2 = np.interp(si, self.s, self.z2)
-                z3 = np.interp(si, self.s, self.z3)
-                # Apply z-scaling to the slope coefficients
-                z1_scaled = z1 * self.z_scale
-                z2_scaled = z2 * self.z_scale
-                z3_scaled = z3 * self.z_scale
-                banking_rad[i] = np.arctan(z1_scaled + 2*z2_scaled*ni + 3*z3_scaled*ni**2)
-            return banking_rad
+    def _display_poses(self, s_values, n_values, headings, x_model, y_model, z_model):
+        poses = []
+        for s, n, heading, x, y, z in zip(s_values, n_values, headings, x_model, y_model, z_model):
+            psi = np.interp(s, self.s, self.psi)
+            _, dz_ds, dz_dn, dpsi_ds = self.get_surface_values_at_sn(s, n)
+            pose = vehicle_pose_matrix(x, y, z, heading, psi, dpsi_ds, dz_ds, dz_dn, n)
+            poses.append(display_pose_from_model_pose(pose, z_scale=self.z_scale))
+        return np.array(poses, dtype=float)
     
     def _prepare_common_timeline(self):
         """Interpolate vehicle data to common timeline"""
-        # Follower trajectory
-        xcF = np.interp(self.sF, self.sTrack, self.xc)
-        ycF = np.interp(self.sF, self.sTrack, self.yc)
-        psiF = np.interp(self.sF, self.sTrack, self.psiTrack)
-        
-        self.xF_orig = xcF - self.nF * np.sin(psiF)
-        self.yF_orig = ycF + self.nF * np.cos(psiF)
-        self.zF_orig = self.get_elevation_at_xy(self.xF_orig, self.yF_orig)
-        self.carAngleF_orig = np.unwrap(psiF + self.xiF)
-        
-        # Leader trajectory
-        xcL = np.interp(self.sL, self.sTrack, self.xc)
-        ycL = np.interp(self.sL, self.sTrack, self.yc)
-        psiL = np.interp(self.sL, self.sTrack, self.psiTrack)
-        
-        self.xL_orig = xcL - self.nL * np.sin(psiL)
-        self.yL_orig = ycL + self.nL * np.cos(psiL)
-        self.zL_orig = self.get_elevation_at_xy(self.xL_orig, self.yL_orig)
-        self.carAngleL_orig = np.unwrap(psiL + self.xiL)
-        
-        # Banking angles
-        self.banking_angleF_orig = np.array([
-            self.get_banking_angle_at_sn(s, n) for s, n in zip(self.sF, self.nF)
-        ])
-        self.banking_angleL_orig = np.array([
-            self.get_banking_angle_at_sn(s, n) for s, n in zip(self.sL, self.nL) 
-        ])
-        
         # Resample to common timeline
         self.tNum = len(self.tF)
         self.t = np.linspace(0, min(self.tF[-1], self.tL[-1]), self.tNum)
-        
-        self.xF = np.interp(self.t, self.tF, self.xF_orig)
-        self.yF = np.interp(self.t, self.tF, self.yF_orig)
-        self.zF = np.interp(self.t, self.tF, self.zF_orig)
-        self.carAngleF = np.interp(self.t, self.tF, self.carAngleF_orig)
-        self.banking_angleF = np.interp(self.t, self.tF, self.banking_angleF_orig)
-        
-        self.xL = np.interp(self.t, self.tL, self.xL_orig)
-        self.yL = np.interp(self.t, self.tL, self.yL_orig)
-        self.zL = np.interp(self.t, self.tL, self.zL_orig)
-        self.carAngleL = np.interp(self.t, self.tL, self.carAngleL_orig)
-        self.banking_angleL = np.interp(self.t, self.tL, self.banking_angleL_orig)
-        
-        # Smoothing filter for z movement
-        smoothing_window = 5
-        self.zF = uniform_filter1d(self.zF, size=smoothing_window, mode='nearest')
-        self.zL = uniform_filter1d(self.zL, size=smoothing_window, mode='nearest')
-        
-        # SAE coordinate system (invert z)
-        #self.zF = self.zF * -1
-        #self.zL = self.zL * -1 
-        
+
+        self.sF_i = np.interp(self.t, self.tF, self.sF)
+        self.nF_i = np.interp(self.t, self.tF, self.nF)
+        self.sL_i = np.interp(self.t, self.tL, self.sL)
+        self.nL_i = np.interp(self.t, self.tL, self.nL)
+
+        psiF = np.interp(self.sF_i, self.sTrack, self.psiTrack)
+        psiL = np.interp(self.sL_i, self.sTrack, self.psiTrack)
+        xcF = np.interp(self.sF_i, self.sTrack, self.xc)
+        ycF = np.interp(self.sF_i, self.sTrack, self.yc)
+        xcL = np.interp(self.sL_i, self.sTrack, self.xc)
+        ycL = np.interp(self.sL_i, self.sTrack, self.yc)
+
+        self.xF_model, self.yF_model = road_xy(xcF, ycF, psiF, self.nF_i)
+        self.xL_model, self.yL_model = road_xy(xcL, ycL, psiL, self.nL_i)
+        self.zF_model = self.get_surface_values_at_sn(self.sF_i, self.nF_i)[0]
+        self.zL_model = self.get_surface_values_at_sn(self.sL_i, self.nL_i)[0]
+
+        headingF_raw = np.unwrap(np.interp(self.sF, self.sTrack, self.psiTrack) + self.xiF)
+        headingL_raw = np.unwrap(np.interp(self.sL, self.sTrack, self.psiTrack) + self.xiL)
+        self.carAngleF = np.interp(self.t, self.tF, headingF_raw)
+        self.carAngleL = np.interp(self.t, self.tL, headingL_raw)
+
+        self.xF, self.yF, self.zF = model_to_display_points(
+            self.xF_model, self.yF_model, self.zF_model, z_scale=self.z_scale
+        )
+        self.xL, self.yL, self.zL = model_to_display_points(
+            self.xL_model, self.yL_model, self.zL_model, z_scale=self.z_scale
+        )
+
+        self.poseF = self._display_poses(
+            self.sF_i, self.nF_i, self.carAngleF, self.xF_model, self.yF_model, self.zF_model
+        )
+        self.poseL = self._display_poses(
+            self.sL_i, self.nL_i, self.carAngleL, self.xL_model, self.yL_model, self.zL_model
+        )
+
+        self.banking_angleF = self.get_banking_angle_at_sn(self.sF_i, self.nF_i)
+        self.banking_angleL = self.get_banking_angle_at_sn(self.sL_i, self.nL_i)
+
         print(f"Animation timeline: {self.tNum} frames, {self.t[-1]:.2f}s")
-        print(f"Follower Z range: {np.min(self.zF):.2f} to {np.max(self.zF):.2f}")
-        print(f"Leader Z range: {np.min(self.zL):.2f} to {np.max(self.zL):.2f}")
+        print(f"Follower model Z range: {np.min(self.zF_model):.2f} to {np.max(self.zF_model):.2f}")
+        print(f"Leader model Z range: {np.min(self.zL_model):.2f} to {np.max(self.zL_model):.2f}")
     
     def init_pygame_opengl(self, width=1600, height=1200):
         """Initialize Pygame with OpenGL"""
@@ -451,24 +408,22 @@ class Vehicle3DAnimatorGL:
         glDisableClientState(GL_VERTEX_ARRAY)
         glEnable(GL_LIGHTING)
     
-    def render_car(self, x, y, z, angle, banking_angle, color):
-        """Render a car with banking"""
+    def render_car(self, x, y, z, angle, banking_angle, color, pose_matrix=None):
+        """Render a car in display space."""
         glPushMatrix()
-        
+
         # Lift car slightly above surface to prevent z-fighting
-        z_offset = 0.0
-        
-        # Translate to position
-        glTranslatef(x, y, z + z_offset)
-        
-        # Rotate for heading
-        glRotatef(np.degrees(-angle), 0, 0, 1)
-        
-        # Rotate for banking 
-        glRotatef(np.degrees(banking_angle), 1, 0, 0)
-        
+        z_offset = 0.05
+        if pose_matrix is not None:
+            pose = np.array(pose_matrix, dtype=np.float32, copy=True)
+            pose[:3, 3] += pose[:3, 2] * z_offset
+            glMultMatrixf(pose.T)
+        else:
+            glTranslatef(x, y, z + z_offset)
+            glRotatef(np.degrees(-angle), 0, 0, 1)
+            glRotatef(np.degrees(banking_angle), 1, 0, 0)
+
         # Car dimensions
-        car_length = (self.a + self.b) / self.lengthscale
         car_width = 1.8
         car_height = 0.6
         
@@ -481,45 +436,45 @@ class Vehicle3DAnimatorGL:
         #Initilise Vertices
         # Bottom
         glNormal3f(0, 0, -1)
-        glVertex3f(-self.b/self.lengthscale, -car_width/2, 0)
-        glVertex3f(self.a/self.lengthscale, -car_width/2, 0)
-        glVertex3f(self.a/self.lengthscale, car_width/2, 0)
-        glVertex3f(-self.b/self.lengthscale, car_width/2, 0)
+        glVertex3f(-self.b_m, -car_width/2, 0)
+        glVertex3f(self.a_m, -car_width/2, 0)
+        glVertex3f(self.a_m, car_width/2, 0)
+        glVertex3f(-self.b_m, car_width/2, 0)
         
         # Top
         glNormal3f(0, 0, 1)
-        glVertex3f(-self.b/self.lengthscale, -car_width/2, car_height)
-        glVertex3f(-self.b/self.lengthscale, car_width/2, car_height)
-        glVertex3f(self.a/self.lengthscale, car_width/2, car_height)
-        glVertex3f(self.a/self.lengthscale, -car_width/2, car_height)
+        glVertex3f(-self.b_m, -car_width/2, car_height)
+        glVertex3f(-self.b_m, car_width/2, car_height)
+        glVertex3f(self.a_m, car_width/2, car_height)
+        glVertex3f(self.a_m, -car_width/2, car_height)
         
         # Front
         glNormal3f(1, 0, 0)
-        glVertex3f(self.a/self.lengthscale, -car_width/2, 0)
-        glVertex3f(self.a/self.lengthscale, -car_width/2, car_height)
-        glVertex3f(self.a/self.lengthscale, car_width/2, car_height)
-        glVertex3f(self.a/self.lengthscale, car_width/2, 0)
+        glVertex3f(self.a_m, -car_width/2, 0)
+        glVertex3f(self.a_m, -car_width/2, car_height)
+        glVertex3f(self.a_m, car_width/2, car_height)
+        glVertex3f(self.a_m, car_width/2, 0)
         
         # Rear
         glNormal3f(-1, 0, 0)
-        glVertex3f(-self.b/self.lengthscale, -car_width/2, 0)
-        glVertex3f(-self.b/self.lengthscale, car_width/2, 0)
-        glVertex3f(-self.b/self.lengthscale, car_width/2, car_height)
-        glVertex3f(-self.b/self.lengthscale, -car_width/2, car_height)
+        glVertex3f(-self.b_m, -car_width/2, 0)
+        glVertex3f(-self.b_m, car_width/2, 0)
+        glVertex3f(-self.b_m, car_width/2, car_height)
+        glVertex3f(-self.b_m, -car_width/2, car_height)
         
         # Left
         glNormal3f(0, -1, 0)
-        glVertex3f(-self.b/self.lengthscale, -car_width/2, 0)
-        glVertex3f(-self.b/self.lengthscale, -car_width/2, car_height)
-        glVertex3f(self.a/self.lengthscale, -car_width/2, car_height)
-        glVertex3f(self.a/self.lengthscale, -car_width/2, 0)
+        glVertex3f(-self.b_m, -car_width/2, 0)
+        glVertex3f(-self.b_m, -car_width/2, car_height)
+        glVertex3f(self.a_m, -car_width/2, car_height)
+        glVertex3f(self.a_m, -car_width/2, 0)
         
         # Right
         glNormal3f(0, 1, 0)
-        glVertex3f(-self.b/self.lengthscale, car_width/2, 0)
-        glVertex3f(self.a/self.lengthscale, car_width/2, 0)
-        glVertex3f(self.a/self.lengthscale, car_width/2, car_height)
-        glVertex3f(-self.b/self.lengthscale, car_width/2, car_height)
+        glVertex3f(-self.b_m, car_width/2, 0)
+        glVertex3f(self.a_m, car_width/2, 0)
+        glVertex3f(self.a_m, car_width/2, car_height)
+        glVertex3f(-self.b_m, car_width/2, car_height)
         
         glEnd()
         
@@ -750,12 +705,14 @@ class Vehicle3DAnimatorGL:
             zF = self.zF[self.current_frame]
             angleF = self.carAngleF[self.current_frame]
             bankingF = self.banking_angleF[self.current_frame]
+            poseF = self.poseF[self.current_frame]
             
             xL = self.xL[self.current_frame]
             yL = self.yL[self.current_frame]
             zL = self.zL[self.current_frame]
             angleL = self.carAngleL[self.current_frame]
             bankingL = self.banking_angleL[self.current_frame]
+            poseL = self.poseL[self.current_frame]
             
             # Trail data
             trail_start = max(0, self.current_frame - self.trail_length)
@@ -780,8 +737,8 @@ class Vehicle3DAnimatorGL:
             self.render_trail(xL_trail, yL_trail, zL_trail, (0, 0, 1))  # Blue for leader
             
             # Draw cars with banking
-            self.render_car(xF, yF, zF, angleF, bankingF, (0.8, 0.1, 0.1))  # Follower red
-            self.render_car(xL, yL, zL, angleL, bankingL, (0.1, 0.1, 0.8))  # Leader blue
+            self.render_car(xF, yF, zF, angleF, bankingF, (0.8, 0.1, 0.1), poseF)  # Follower red
+            self.render_car(xL, yL, zL, angleL, bankingL, (0.1, 0.1, 0.8), poseL)  # Leader blue
             
             pygame.display.flip()
             clock.tick(30)  # 30 FPS for smooth animation

@@ -3,6 +3,8 @@ import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
 from scipy.io import loadmat
 from matplotlib import patches, transforms
+from animator_math import physical_wheelbase, road_xy, unscale_vehicle_states
+import argparse
 
 
 class DataProcessor:
@@ -31,6 +33,7 @@ class DataProcessor:
         # Vehicle parameters
         self.a = self.auxdata.a
         self.b = self.auxdata.b
+        self.a_m, self.b_m = physical_wheelbase(self.auxdata)
         self.M = self.auxdata.M  # Vehicle mass
         self.rwTrack = self.auxdata.track.rw / self.lengthscale
         self.xc = self.auxdata.track.xc
@@ -147,17 +150,17 @@ class DataProcessor:
             if self.has_direct_accelerations:
                 return self.ax_L_direct, self.ay_L_direct, self.ax_F_direct, self.ay_F_direct
             else:
-                return self.ax_L_num, self.ay_L_num, self.ax_F_num, self.ay_F_num
+                return self.ax_L, self.ay_L, self.ax_F, self.ay_F
         elif method == 'direct':
             return self.ax_L_direct, self.ay_L_direct, self.ax_F_direct, self.ay_F_direct
         elif method == 'numerical':
-            return self.ax_L_num, self.ay_L_num, self.ax_F_num, self.ay_F_num
+            return self.ax_L, self.ay_L, self.ax_F, self.ay_F
         elif method == 'forces':
             if hasattr(self, 'ax_from_forces_L'):
                 return self.ax_from_forces_L, self.ay_from_forces_L, self.ax_from_forces_F, self.ay_from_forces_F
             else:
                 print("Force-based accelerations not available, using numerical")
-                return self.ax_L_num, self.ay_L_num, self.ax_F_num, self.ay_F_num
+                return self.ax_L, self.ay_L, self.ax_F, self.ay_F
 
     def get_g_forces(self, method='auto'):
         """Get g-forces with specified method"""
@@ -216,38 +219,35 @@ class DataProcessor:
 
     def _extract_states(self):
         """Extract and scale vehicle states"""
-        # Leader states
-        self.nL, self.xiL, self.vL, self.omega_BzL, self.uL, self.deltaL, self.k_fL, self.k_rL, self.tL = (
-            self.statesL[:, 0] / self.lengthscale,
-            self.statesL[:, 1],
-            self.statesL[:, 2] / self.velscale,
-            self.statesL[:, 3] / self.timescale,
-            self.statesL[:, 4] / self.velscale,
-            self.statesL[:, 5],
-            self.statesL[:, 6],
-            self.statesL[:, 7],
-            self.statesL[:, 8] / self.timescale,
-        )
+        leader = unscale_vehicle_states(self.statesL, self.lengthscale, self.velscale, self.timescale)
+        follower = unscale_vehicle_states(self.statesF, self.lengthscale, self.velscale, self.timescale)
 
-        # Follower states
-        self.nF, self.xiF, self.vF, self.omega_BzF, self.uF, self.deltaF, self.k_fF, self.k_rF, self.tF = (
-            self.statesF[:, 0] / self.lengthscale,
-            self.statesF[:, 1],
-            self.statesF[:, 2] / self.velscale,
-            self.statesF[:, 3] / self.timescale,
-            self.statesF[:, 4] / self.velscale,
-            self.statesF[:, 5],
-            self.statesF[:, 6],
-            self.statesF[:, 7],
-            self.statesF[:, 8] / self.timescale,
-        )
+        self.nL = leader["n"]
+        self.xiL = leader["xi"]
+        self.vL = leader["v"]
+        self.omega_BzL = leader["omega_Bz"]
+        self.uL = leader["u"]
+        self.deltaL = leader["delta"]
+        self.k_fL = leader["k_f"]
+        self.k_rL = leader["k_r"]
+        self.tL = leader["t"]
+
+        self.nF = follower["n"]
+        self.xiF = follower["xi"]
+        self.vF = follower["v"]
+        self.omega_BzF = follower["omega_Bz"]
+        self.uF = follower["u"]
+        self.deltaF = follower["delta"]
+        self.k_fF = follower["k_f"]
+        self.k_rF = follower["k_r"]
+        self.tF = follower["t"]
 
     def _compute_slip_angles(self):
         """Compute tyre slip angles"""
-        self.alp_fF = np.arctan2(self.vF + self.omega_BzF * self.a, self.uF) - self.deltaF
-        self.alp_rF = np.arctan2(self.vF - self.omega_BzF * self.b, self.uF)
-        self.alp_fL = np.arctan2(self.vL + self.omega_BzL * self.a, self.uL) - self.deltaL
-        self.alp_rL = np.arctan2(self.vL - self.omega_BzL * self.b, self.uL)
+        self.alp_fF = np.arctan2(self.vF + self.omega_BzF * self.a_m, self.uF) - self.deltaF
+        self.alp_rF = np.arctan2(self.vF - self.omega_BzF * self.b_m, self.uF)
+        self.alp_fL = np.arctan2(self.vL + self.omega_BzL * self.a_m, self.uL) - self.deltaL
+        self.alp_rL = np.arctan2(self.vL - self.omega_BzL * self.b_m, self.uL)
 
     def _compute_tyre_forces(self):
         """Compute tyre forces using magic formula"""
@@ -345,15 +345,13 @@ class DataProcessor:
         ycF = np.interp(self.sF, self.sTrack, self.yc)
         psiF = np.interp(self.sF, self.sTrack, self.psiTrack)
 
-        self.xF = xcF - self.nF * np.sin(psiF)
-        self.yF = ycF + self.nF * np.cos(psiF)
+        self.xF, self.yF = road_xy(xcF, ycF, psiF, self.nF)
 
         xcL = np.interp(self.sL, self.sTrack, self.xc)
         ycL = np.interp(self.sL, self.sTrack, self.yc)
         psiL = np.interp(self.sL, self.sTrack, self.psiTrack)
 
-        self.xL = xcL - self.nL * np.sin(psiL)
-        self.yL = ycL + self.nL * np.cos(psiL)
+        self.xL, self.yL = road_xy(xcL, ycL, psiL, self.nL)
 
         self.carAngleF = np.unwrap(psiF + self.xiF)
         self.carAngleL = np.unwrap(psiL + self.xiL)
@@ -362,6 +360,10 @@ class DataProcessor:
         """Resample all data to common time base"""
         tNum = len(self.tF)
         self.t = np.linspace(0, min(self.tF[-1], self.tL[-1]), tNum)
+        self.sF_i = np.interp(self.t, self.tF, self.sF)
+        self.nF_i = np.interp(self.t, self.tF, self.nF)
+        self.sL_i = np.interp(self.t, self.tL, self.sL)
+        self.nL_i = np.interp(self.t, self.tL, self.nL)
 
         # Interpolate tyre quantities to common time base
         self.Ffx_F = np.interp(self.t, self.tF, self.Ffx_F_t);  self.Ffy_F = np.interp(self.t, self.tF, self.Ffy_F_t)
@@ -374,13 +376,18 @@ class DataProcessor:
         self.Fxmax_r_F = np.interp(self.t, self.tF, self.Fxmax_r_F_t);  self.Fymax_r_F = np.interp(self.t, self.tF, self.Fymax_r_F_t)
         self.Fxmax_r_L = np.interp(self.t, self.tL, self.Fxmax_r_L_t);  self.Fymax_r_L = np.interp(self.t, self.tL, self.Fymax_r_L_t)
 
-        # Interpolated positions
-        self.xF_interp = np.interp(self.t, self.tF, self.xF)
-        self.yF_interp = np.interp(self.t, self.tF, self.yF)
+        # Interpolated positions. Reconstruct from common-timeline track
+        # coordinates so the HUD and 3D renderer share the same geometry.
+        xcF = np.interp(self.sF_i, self.sTrack, self.xc)
+        ycF = np.interp(self.sF_i, self.sTrack, self.yc)
+        psiF = np.interp(self.sF_i, self.sTrack, self.psiTrack)
+        self.xF_interp, self.yF_interp = road_xy(xcF, ycF, psiF, self.nF_i)
         self.carAngleF_interp = np.interp(self.t, self.tF, self.carAngleF)
 
-        self.xL_interp = np.interp(self.t, self.tL, self.xL)
-        self.yL_interp = np.interp(self.t, self.tL, self.yL)
+        xcL = np.interp(self.sL_i, self.sTrack, self.xc)
+        ycL = np.interp(self.sL_i, self.sTrack, self.yc)
+        psiL = np.interp(self.sL_i, self.sTrack, self.psiTrack)
+        self.xL_interp, self.yL_interp = road_xy(xcL, ycL, psiL, self.nL_i)
         self.carAngleL_interp = np.interp(self.t, self.tL, self.carAngleL)
 
         # Interpolate accelerations to common time base
@@ -442,9 +449,9 @@ class DataProcessor:
 
 class TelemetryDashboard:
     """Main telemetry dashboard that coordinates the animation"""
-    
-    def __init__(self):
-        self.data_processor = DataProcessor()
+
+    def __init__(self, leader_file, follower_file, track_file):
+        self.data_processor = DataProcessor(leader_file, follower_file, track_file)
         self.precomputed_data = PrecomputedData(self.data_processor)
         self.fig = None
         self.animation = None
@@ -844,7 +851,7 @@ class PrecomputedData:
         for idx in indices:
             i = idx
             # Car positions
-            carXcoords = np.array([-self.dp.b, -self.dp.b, self.dp.a, self.dp.a]) / self.dp.lengthscale
+            carXcoords = np.array([-self.dp.b_m, -self.dp.b_m, self.dp.a_m, self.dp.a_m])
             carWidth = 1.8
             carYcoords = np.array([-carWidth/2, carWidth/2, carWidth/2, -carWidth/2])
             
@@ -905,8 +912,18 @@ class PrecomputedData:
         print("Pre-computation complete!")
 
 
-# Main execution
 if __name__ == "__main__":
-    dashboard = TelemetryDashboard()
+    parser = argparse.ArgumentParser(description="Run the Matplotlib-only telemetry HUD.")
+    parser.add_argument("leader_file", help="Leader trajectory .mat file")
+    parser.add_argument("follower_file", help="Follower trajectory .mat file")
+    parser.add_argument(
+        "track_file",
+        nargs="?",
+        default="NASCAR_Track_Monge_v3.mat",
+        help="Track .mat file, default: NASCAR_Track_Monge_v3.mat",
+    )
+    args = parser.parse_args()
+
+    dashboard = TelemetryDashboard(args.leader_file, args.follower_file, args.track_file)
     dashboard.setup_dashboard()
     ani = dashboard.animate()
