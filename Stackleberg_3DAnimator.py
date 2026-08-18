@@ -34,7 +34,7 @@ from phd_3d_animator.geometry import (
 )
 
 class Vehicle3DAnimatorGL:
-    def __init__(self, leader_file, follower_file, track_file, car_visual_scale=4.0):
+    def __init__(self, leader_file, follower_file, track_file, car_visual_scale=1.5):
         print("Loading vehicle data...")
         
         # Load vehicle simulation data
@@ -529,7 +529,7 @@ class Vehicle3DAnimatorGL:
         z_offset = 0.05
         if pose_matrix is not None:
             pose = np.array(pose_matrix, dtype=np.float32, copy=True)
-            pose[:3, 3] += pose[:3, 2] * z_offset
+            pose[:3, 3] -= pose[:3, 2] * z_offset
             glMultMatrixf(pose.T)
         else:
             glTranslatef(x, y, z + z_offset)

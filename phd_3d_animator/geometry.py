@@ -5,23 +5,23 @@ from __future__ import annotations
 import numpy as np
 
 
-def car_prism_geometry(a_m, b_m, width_m=1.8, height_m=0.6, visual_scale=4.0):
-    """Return vertices and normals for a simple rectangular vehicle prism."""
+def car_prism_geometry(a_m, b_m, width_m=1.8, height_m=0.6, visual_scale=1.5):
+    """Return vertices and normals for a simple SAE-frame vehicle prism."""
     half_width = width_m * visual_scale / 2.0
     x_front = a_m * visual_scale
     x_rear = -b_m * visual_scale
     y_left = -half_width
     y_right = half_width
-    z_bottom = 0.0
-    z_top = height_m * visual_scale
+    z_ground = 0.0
+    z_roof = -height_m * visual_scale
 
     faces = [
-        ((0.0, 0.0, -1.0), [(x_rear, y_left, z_bottom), (x_front, y_left, z_bottom), (x_front, y_right, z_bottom), (x_rear, y_right, z_bottom)]),
-        ((0.0, 0.0, 1.0), [(x_rear, y_left, z_top), (x_rear, y_right, z_top), (x_front, y_right, z_top), (x_front, y_left, z_top)]),
-        ((1.0, 0.0, 0.0), [(x_front, y_left, z_bottom), (x_front, y_left, z_top), (x_front, y_right, z_top), (x_front, y_right, z_bottom)]),
-        ((-1.0, 0.0, 0.0), [(x_rear, y_left, z_bottom), (x_rear, y_right, z_bottom), (x_rear, y_right, z_top), (x_rear, y_left, z_top)]),
-        ((0.0, -1.0, 0.0), [(x_rear, y_left, z_bottom), (x_rear, y_left, z_top), (x_front, y_left, z_top), (x_front, y_left, z_bottom)]),
-        ((0.0, 1.0, 0.0), [(x_rear, y_right, z_bottom), (x_front, y_right, z_bottom), (x_front, y_right, z_top), (x_rear, y_right, z_top)]),
+        ((0.0, 0.0, 1.0), [(x_rear, y_left, z_ground), (x_front, y_left, z_ground), (x_front, y_right, z_ground), (x_rear, y_right, z_ground)]),
+        ((0.0, 0.0, -1.0), [(x_rear, y_left, z_roof), (x_rear, y_right, z_roof), (x_front, y_right, z_roof), (x_front, y_left, z_roof)]),
+        ((1.0, 0.0, 0.0), [(x_front, y_left, z_ground), (x_front, y_left, z_roof), (x_front, y_right, z_roof), (x_front, y_right, z_ground)]),
+        ((-1.0, 0.0, 0.0), [(x_rear, y_left, z_ground), (x_rear, y_right, z_ground), (x_rear, y_right, z_roof), (x_rear, y_left, z_roof)]),
+        ((0.0, -1.0, 0.0), [(x_rear, y_left, z_ground), (x_rear, y_left, z_roof), (x_front, y_left, z_roof), (x_front, y_left, z_ground)]),
+        ((0.0, 1.0, 0.0), [(x_rear, y_right, z_ground), (x_front, y_right, z_ground), (x_front, y_right, z_roof), (x_rear, y_right, z_roof)]),
     ]
 
     vertices = []

@@ -22,7 +22,7 @@ class IntegratedAnimationFixed:
         self.leader_file = leader_file
         self.follower_file = follower_file
         self.track_file = track_file
-        self.car_visual_scale = 4.0
+        self.car_visual_scale = 1.5
         
         # Shared state
         self.current_frame = 0
@@ -968,7 +968,7 @@ def main():
     parser.add_argument(
         "--car-scale",
         type=float,
-        default=4.0,
+        default=1.5,
         help="Visual-only scale for the car blocks; does not affect vehicle maths.",
     )
     args = parser.parse_args()

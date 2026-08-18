@@ -23,7 +23,7 @@ class SingleWindowRaceApp:
         fps=30,
         camera_mode="follow",
         diagnostics=False,
-        car_scale=4.0,
+        car_scale=1.5,
     ):
         self.size = size
         self.fps = fps
@@ -165,7 +165,7 @@ def build_parser():
     parser.add_argument(
         "--car-scale",
         type=float,
-        default=4.0,
+        default=1.5,
         help="Visual-only scale for the car blocks; does not affect vehicle maths.",
     )
     return parser
