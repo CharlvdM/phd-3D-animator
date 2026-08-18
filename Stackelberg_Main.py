@@ -43,7 +43,7 @@ class IntegratedAnimationFixed:
         # Initialize data processor
         print("Loading data...")
         self.data_processor = DataProcessor(leader_file, follower_file, track_file)
-        
+
         # Precomputed data
         self.precomputed_data = PrecomputedData(self.data_processor)
         self.precomputed_data.precompute_all()
@@ -182,7 +182,9 @@ class IntegratedAnimationFixed:
         
         # Set fullscreen after creating the figure
         self._set_fullscreen()
-    
+        self.fig.canvas.draw()
+        plt.pause(0.2)
+
         # Initialize Pygame AFTER matplotlib window is fully shown and rendered
         self._init_pygame()
 
@@ -192,7 +194,9 @@ class IntegratedAnimationFixed:
             manager = plt.get_current_fig_manager()
             # Try different methods for fullscreen across different backends
             if hasattr(manager, 'window'):
-                if hasattr(manager.window, 'showMaximized'):
+                if sys.platform.startswith("linux") and hasattr(manager.window, 'attributes'):
+                    manager.window.attributes('-zoomed', True)
+                elif hasattr(manager.window, 'showMaximized'):
                     manager.window.showMaximized()
                 elif hasattr(manager.window, 'state'):
                     manager.window.state('zoomed')  # Windows
@@ -240,7 +244,37 @@ class IntegratedAnimationFixed:
         for spine in self.animation_ax.spines.values():
             spine.set_edgecolor('#555555')
             spine.set_linewidth(int(3 * self.scale_factor))
-    
+
+    def _animation_window_geometry(self):
+        """Return screen position and size for the 3D viewport placeholder."""
+        try:
+            self.fig.canvas.draw()
+            bbox = self.animation_ax.get_window_extent()
+            canvas_width, canvas_height = self.fig.canvas.get_width_height()
+            x0, y0, width, height = bbox.bounds
+
+            manager = plt.get_current_fig_manager()
+            root_x = 0
+            root_y = 0
+            if hasattr(manager, 'window'):
+                window = manager.window
+                if hasattr(window, 'winfo_rootx') and hasattr(window, 'winfo_rooty'):
+                    root_x = window.winfo_rootx()
+                    root_y = window.winfo_rooty()
+                elif hasattr(window, 'geometry'):
+                    geom = window.geometry()
+                    if hasattr(geom, 'x') and hasattr(geom, 'y'):
+                        root_x = geom.x()
+                        root_y = geom.y()
+
+            screen_x = int(root_x + x0)
+            screen_y = int(root_y + canvas_height - y0 - height)
+            viewport_size = (max(200, int(width)), max(200, int(height)))
+            return (screen_x, screen_y), viewport_size
+        except Exception as e:
+            print(f"Could not derive animation viewport geometry: {e}")
+            return tuple(self.layout_ratios['pygame_pos']), tuple(self.layout_ratios['pygame_size'])
+
     def _init_pygame(self):
         """Initialize Pygame with dynamic positioning"""
         try:
@@ -252,20 +286,18 @@ class IntegratedAnimationFixed:
                 self.follower_file, 
                 self.track_file
             )
-            
-            # Initialize Pygame with NOFRAME flag for borderless window
-            pygame.init()
-            
-            # Use calculated position and size
-            pygame_pos = self.layout_ratios['pygame_pos']
-            pygame_size = self.layout_ratios['pygame_size']
-            
+
+            pygame_pos, pygame_size = self._animation_window_geometry()
+
             # Set window position
             import os
             os.environ['SDL_VIDEO_WINDOW_POS'] = f"{pygame_pos[0]},{pygame_pos[1]}"
-            
+
+            # Initialize Pygame with NOFRAME flag for borderless window
+            pygame.init()
+
             # Create borderless window with calculated size
-            self.pygame_surface = pygame.display.set_mode(pygame_size, 
+            self.pygame_surface = pygame.display.set_mode(pygame_size,
                                                          pygame.DOUBLEBUF | pygame.OPENGL | pygame.NOFRAME)
             
             # Set window title
@@ -893,15 +925,17 @@ class IntegratedAnimationFixed:
             zF = self.pygame_animator.zF[self.current_frame]
             angleF = self.pygame_animator.carAngleF[self.current_frame]
             bankingF = self.pygame_animator.banking_angleF[self.current_frame]
+            poseF = self.pygame_animator.poseF[self.current_frame]
             
             xL = self.pygame_animator.xL[self.current_frame]
             yL = self.pygame_animator.yL[self.current_frame]
             zL = self.pygame_animator.zL[self.current_frame]
             angleL = self.pygame_animator.carAngleL[self.current_frame]
             bankingL = self.pygame_animator.banking_angleL[self.current_frame]
-            
-            self.pygame_animator.render_car(xF, yF, zF, angleF, bankingF, (0.8, 0.1, 0.1))
-            self.pygame_animator.render_car(xL, yL, zL, angleL, bankingL, (0.1, 0.1, 0.8))
+            poseL = self.pygame_animator.poseL[self.current_frame]
+
+            self.pygame_animator.render_car(xF, yF, zF, angleF, bankingF, (0.8, 0.1, 0.1), poseF)
+            self.pygame_animator.render_car(xL, yL, zL, angleL, bankingL, (0.1, 0.1, 0.8), poseL)
             
             pygame.display.flip()
             

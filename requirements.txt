@@ -1,0 +1,9 @@
+numpy
+scipy
+matplotlib
+pygame
+PyOpenGL
+PyOpenGL_accelerate
+
+# Optional, only needed for VideoWriter.py video export.
+opencv-python

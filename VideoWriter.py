@@ -7,11 +7,15 @@ from scipy.io import loadmat
 import threading
 import time
 import sys
-import cv2
 import os
 from OpenGL.GL import *
 from OpenGL.GLU import *
 from Stackelberg_HUD import DataProcessor, PrecomputedData, TelemetryDashboard
+
+try:
+    import cv2
+except ImportError:
+    cv2 = None
 
 class HeadlessAnimationRecorder:
     def __init__(self, leader_file, follower_file, track_file):
@@ -32,7 +36,6 @@ class HeadlessAnimationRecorder:
         # Initialize data processor
         print("Loading data...")
         self.data_processor = DataProcessor(leader_file, follower_file, track_file)
-        self.data_processor.process_data()
         self.total_frames = len(self.data_processor.t)
         
         # Precomputed data
@@ -158,11 +161,6 @@ class HeadlessAnimationRecorder:
             self.pygame_initialized = True
             print("OpenGL setup complete")
 
-        except Exception as e:
-            print(f"Headless Pygame initialization error: {e}")
-            import traceback
-            traceback.print_exc()
-            
         except Exception as e:
             print(f"Headless Pygame initialization error: {e}")
             import traceback
@@ -567,15 +565,17 @@ class HeadlessAnimationRecorder:
             zF = self.pygame_animator.zF[frame_idx]
             angleF = self.pygame_animator.carAngleF[frame_idx]
             bankingF = self.pygame_animator.banking_angleF[frame_idx]
+            poseF = self.pygame_animator.poseF[frame_idx]
 
             xL = self.pygame_animator.xL[frame_idx]
             yL = self.pygame_animator.yL[frame_idx]
             zL = self.pygame_animator.zL[frame_idx]
             angleL = self.pygame_animator.carAngleL[frame_idx]
             bankingL = self.pygame_animator.banking_angleL[frame_idx]
+            poseL = self.pygame_animator.poseL[frame_idx]
 
-            self.pygame_animator.render_car(xF, yF, zF, angleF, bankingF, (0.8, 0.1, 0.1))
-            self.pygame_animator.render_car(xL, yL, zL, angleL, bankingL, (0.1, 0.1, 0.8))
+            self.pygame_animator.render_car(xF, yF, zF, angleF, bankingF, (0.8, 0.1, 0.1), poseF)
+            self.pygame_animator.render_car(xL, yL, zL, angleL, bankingL, (0.1, 0.1, 0.8), poseL)
 
             # Capture the frame - ensure we read from the correct buffer
             glFlush()
@@ -647,6 +647,11 @@ class HeadlessAnimationRecorder:
 
     def record_animation(self, output_file=None, fps=30):
         """Main recording function - processes all frames without display"""
+        if cv2 is None:
+            raise RuntimeError(
+                "Video export requires OpenCV. Install opencv-python in the project venv."
+            )
+
         if output_file:
             self.output_file = output_file
         self.fps = fps
