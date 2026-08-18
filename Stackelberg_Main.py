@@ -15,8 +15,6 @@ from matplotlib.animation import FuncAnimation
 from scipy.io import loadmat
 import threading
 import time
-from OpenGL.GL import *
-from OpenGL.GLU import *
 from Stackelberg_HUD import DataProcessor, PrecomputedData, TelemetryDashboard
 
 class IntegratedAnimationFixed:
@@ -306,27 +304,7 @@ class IntegratedAnimationFixed:
             # Platform-specific window management
             self._setup_window_always_on_top()
             
-            # Initialize OpenGL with aspect ratio correction
-            glEnable(GL_DEPTH_TEST)
-            glEnable(GL_LIGHTING)
-            glEnable(GL_LIGHT0)
-            glEnable(GL_COLOR_MATERIAL)
-            
-            glLightfv(GL_LIGHT0, GL_POSITION, (1, 1, 1, 0))
-            glLightfv(GL_LIGHT0, GL_AMBIENT, (0.4, 0.4, 0.4, 1))
-            glLightfv(GL_LIGHT0, GL_DIFFUSE, (0.8, 0.8, 0.8, 1))
-            
-            # Calculate aspect ratio for proper perspective
-            aspect_ratio = pygame_size[0] / pygame_size[1]
-            glMatrixMode(GL_PROJECTION)
-            gluPerspective(45, aspect_ratio, 1.0, 10000.0)
-            glMatrixMode(GL_MODELVIEW)
-            
-            glClearColor(1.0, 1.0, 1.0, 1)
-            
-            # Build track VBOs
-            self.pygame_animator.build_track_vbo()
-            self.pygame_animator.build_boundary_vbos()
+            self.pygame_animator.configure_opengl(*pygame_size)
             
             self.pygame_initialized = True
             print(f"Pygame initialized successfully at position {pygame_pos} with size {pygame_size}")
@@ -894,48 +872,7 @@ class IntegratedAnimationFixed:
                         
                         self.pygame_animator.last_mouse_pos = current_pos
             
-            # Handle continuous input
-            self.pygame_animator.handle_input()
-            
-            # Update camera
-            self.pygame_animator.update_camera()
-            
-            # Render scene
-            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
-            
-            # Draw track
-            self.pygame_animator.render_track_surface()
-            self.pygame_animator.render_track_edges()
-            
-            # Get current positions for trails
-            trail_start = max(0, self.current_frame - self.pygame_animator.trail_length)
-            xF_trail = self.pygame_animator.xF[trail_start:self.current_frame+1]
-            yF_trail = self.pygame_animator.yF[trail_start:self.current_frame+1]
-            zF_trail = self.pygame_animator.zF[trail_start:self.current_frame+1]
-            xL_trail = self.pygame_animator.xL[trail_start:self.current_frame+1]
-            yL_trail = self.pygame_animator.yL[trail_start:self.current_frame+1]
-            zL_trail = self.pygame_animator.zL[trail_start:self.current_frame+1]
-            
-            self.pygame_animator.render_trail(xF_trail, yF_trail, zF_trail, (1, 0, 0))
-            self.pygame_animator.render_trail(xL_trail, yL_trail, zL_trail, (0, 0, 1))
-            
-            # Draw cars
-            xF = self.pygame_animator.xF[self.current_frame]
-            yF = self.pygame_animator.yF[self.current_frame]
-            zF = self.pygame_animator.zF[self.current_frame]
-            angleF = self.pygame_animator.carAngleF[self.current_frame]
-            bankingF = self.pygame_animator.banking_angleF[self.current_frame]
-            poseF = self.pygame_animator.poseF[self.current_frame]
-            
-            xL = self.pygame_animator.xL[self.current_frame]
-            yL = self.pygame_animator.yL[self.current_frame]
-            zL = self.pygame_animator.zL[self.current_frame]
-            angleL = self.pygame_animator.carAngleL[self.current_frame]
-            bankingL = self.pygame_animator.banking_angleL[self.current_frame]
-            poseL = self.pygame_animator.poseL[self.current_frame]
-
-            self.pygame_animator.render_car(xF, yF, zF, angleF, bankingF, (0.8, 0.1, 0.1), poseF)
-            self.pygame_animator.render_car(xL, yL, zL, angleL, bankingL, (0.1, 0.1, 0.8), poseL)
+            self.pygame_animator.render_frame(self.current_frame, handle_input=True)
             
             pygame.display.flip()
             

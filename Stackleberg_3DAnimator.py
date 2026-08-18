@@ -253,7 +253,12 @@ class Vehicle3DAnimatorGL:
         display = (width, height)
         pygame.display.set_mode(display, DOUBLEBUF | OPENGL)
         pygame.display.set_caption("Vehicle Animation - Mouse: Rotate | Scroll: Zoom | Space: Play/Pause")
-        
+
+        self.configure_opengl(width, height)
+        print("OpenGL initialized!")
+
+    def configure_opengl(self, width, height):
+        """Configure OpenGL state for the active Pygame context."""
         glEnable(GL_DEPTH_TEST)
         glEnable(GL_LIGHTING)
         glEnable(GL_LIGHT0)
@@ -276,10 +281,61 @@ class Vehicle3DAnimatorGL:
         # Enable blending for transparency
         glEnable(GL_BLEND)
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
-        
+
         self.build_track_vbo()
         self.build_boundary_vbos()
-        print("OpenGL initialized!")
+
+    def render_frame(self, frame_idx=None, handle_input=False):
+        """Render one frame into the current OpenGL context."""
+        if frame_idx is not None:
+            self.current_frame = int(np.clip(frame_idx, 0, self.tNum - 1))
+        if handle_input:
+            self.handle_input()
+
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
+        self.update_camera()
+        self.render_track_surface()
+        self.render_track_edges()
+
+        trail_start = max(0, self.current_frame - self.trail_length)
+        xF_trail = self.xF[trail_start:self.current_frame+1]
+        yF_trail = self.yF[trail_start:self.current_frame+1]
+        zF_trail = self.zF[trail_start:self.current_frame+1]
+        xL_trail = self.xL[trail_start:self.current_frame+1]
+        yL_trail = self.yL[trail_start:self.current_frame+1]
+        zL_trail = self.zL[trail_start:self.current_frame+1]
+
+        self.render_trail(xF_trail, yF_trail, zF_trail, (1, 0, 0))
+        self.render_trail(xL_trail, yL_trail, zL_trail, (0, 0, 1))
+
+        self.render_car(
+            self.xF[self.current_frame],
+            self.yF[self.current_frame],
+            self.zF[self.current_frame],
+            self.carAngleF[self.current_frame],
+            self.banking_angleF[self.current_frame],
+            (0.8, 0.1, 0.1),
+            self.poseF[self.current_frame],
+        )
+        self.render_car(
+            self.xL[self.current_frame],
+            self.yL[self.current_frame],
+            self.zL[self.current_frame],
+            self.carAngleL[self.current_frame],
+            self.banking_angleL[self.current_frame],
+            (0.1, 0.1, 0.8),
+            self.poseL[self.current_frame],
+        )
+
+    def read_frame_bgr(self, width, height):
+        """Read the current OpenGL framebuffer as a BGR uint8 image."""
+        glFlush()
+        glFinish()
+        glPixelStorei(GL_PACK_ALIGNMENT, 1)
+        data = glReadPixels(0, 0, width, height, GL_BGR, GL_UNSIGNED_BYTE)
+        if data is None:
+            return np.zeros((height, width, 3), dtype=np.uint8)
+        return np.frombuffer(data, dtype=np.uint8).reshape((height, width, 3))
     
     def compute_normal(self, v0, v1, v2):
         """Compute surface normal"""

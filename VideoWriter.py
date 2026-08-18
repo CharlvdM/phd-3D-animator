@@ -8,8 +8,6 @@ import threading
 import time
 import sys
 import os
-from OpenGL.GL import *
-from OpenGL.GLU import *
 from Stackelberg_HUD import DataProcessor, PrecomputedData, TelemetryDashboard
 
 try:
@@ -135,25 +133,7 @@ class HeadlessAnimationRecorder:
             os.environ['SDL_VIDEODRIVER'] = 'dummy'
             pygame.display.set_mode(display_size, pygame.DOUBLEBUF | pygame.OPENGL | pygame.HIDDEN)
 
-            # Initialize OpenGL with proper viewport
-            glEnable(GL_DEPTH_TEST)
-            glEnable(GL_LIGHTING)
-            glEnable(GL_LIGHT0)
-            glEnable(GL_COLOR_MATERIAL)
-
-            glLightfv(GL_LIGHT0, GL_POSITION, (1, 1, 1, 0))
-            glLightfv(GL_LIGHT0, GL_AMBIENT, (0.4, 0.4, 0.4, 1))
-            glLightfv(GL_LIGHT0, GL_DIFFUSE, (0.8, 0.8, 0.8, 1))
-
-            glMatrixMode(GL_PROJECTION)
-            gluPerspective(45, display_size[0]/display_size[1], 1.0, 10000.0)
-            glMatrixMode(GL_MODELVIEW)
-
-            glClearColor(1.0, 1.0, 1.0, 1)
-
-            # Build track VBOs
-            self.pygame_animator.build_track_vbo()
-            self.pygame_animator.build_boundary_vbos()
+            self.pygame_animator.configure_opengl(*display_size)
 
             # Set camera to follower perspective
             self.pygame_animator.camera_mode = 'follow'
@@ -534,67 +514,11 @@ class HeadlessAnimationRecorder:
             # Set current frame
             self.pygame_animator.current_frame = frame_idx
 
-            # Force camera to follower perspective
             self.pygame_animator.camera_mode = 'follow'
+            self.pygame_animator.render_frame(frame_idx)
 
-            # Update camera
-            self.pygame_animator.update_camera()
-
-            # Clear the screen
-            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
-
-            # Draw track
-            self.pygame_animator.render_track_surface()
-            self.pygame_animator.render_track_edges()
-
-            # Get current positions for trails
-            trail_start = max(0, frame_idx - self.pygame_animator.trail_length)
-            xF_trail = self.pygame_animator.xF[trail_start:frame_idx+1]
-            yF_trail = self.pygame_animator.yF[trail_start:frame_idx+1]
-            zF_trail = self.pygame_animator.zF[trail_start:frame_idx+1]
-            xL_trail = self.pygame_animator.xL[trail_start:frame_idx+1]
-            yL_trail = self.pygame_animator.yL[trail_start:frame_idx+1]
-            zL_trail = self.pygame_animator.zL[trail_start:frame_idx+1]
-
-            self.pygame_animator.render_trail(xF_trail, yF_trail, zF_trail, (1, 0, 0))
-            self.pygame_animator.render_trail(xL_trail, yL_trail, zL_trail, (0, 0, 1))
-
-            # Draw cars
-            xF = self.pygame_animator.xF[frame_idx]
-            yF = self.pygame_animator.yF[frame_idx]
-            zF = self.pygame_animator.zF[frame_idx]
-            angleF = self.pygame_animator.carAngleF[frame_idx]
-            bankingF = self.pygame_animator.banking_angleF[frame_idx]
-            poseF = self.pygame_animator.poseF[frame_idx]
-
-            xL = self.pygame_animator.xL[frame_idx]
-            yL = self.pygame_animator.yL[frame_idx]
-            zL = self.pygame_animator.zL[frame_idx]
-            angleL = self.pygame_animator.carAngleL[frame_idx]
-            bankingL = self.pygame_animator.banking_angleL[frame_idx]
-            poseL = self.pygame_animator.poseL[frame_idx]
-
-            self.pygame_animator.render_car(xF, yF, zF, angleF, bankingF, (0.8, 0.1, 0.1), poseF)
-            self.pygame_animator.render_car(xL, yL, zL, angleL, bankingL, (0.1, 0.1, 0.8), poseL)
-
-            # Capture the frame - ensure we read from the correct buffer
-            glFlush()
-            glFinish()
-
-            # Set viewport to window size
             width, height = 825, 972
-
-            glPixelStorei(GL_PACK_ALIGNMENT, 1)
-            data = glReadPixels(0, 0, width, height, GL_BGR, GL_UNSIGNED_BYTE)
-
-            if data is None:
-                print(f"Warning: No data read from OpenGL buffer at frame {frame_idx}")
-                return np.zeros((height, width, 3), dtype=np.uint8)
-
-            frame = np.frombuffer(data, dtype=np.uint8).reshape(height, width, 3)
-            frame = np.flipud(frame)  # OpenGL reads upside down
-
-            return frame
+            return np.flipud(self.pygame_animator.read_frame_bgr(width, height))
 
         except Exception as e:
             print(f"Pygame rendering error at frame {frame_idx}: {e}")
