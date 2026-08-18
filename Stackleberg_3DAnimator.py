@@ -26,6 +26,7 @@ from animator_math import (
     unscale_vehicle_states,
     vehicle_pose_matrix,
 )
+from phd_3d_animator.geometry import car_prism_geometry, trail_geometry
 
 class Vehicle3DAnimatorGL:
     def __init__(self, leader_file, follower_file, track_file):
@@ -114,6 +115,7 @@ class Vehicle3DAnimatorGL:
         # VBO placeholders
         self.track_vbo = None
         self.boundary_vbos = None
+        self.car_vertices, self.car_normals = car_prism_geometry(self.a_m, self.b_m)
         
     def _compute_track_mesh(self, nlat=13):
         """Compute 3D track mesh"""
@@ -423,60 +425,15 @@ class Vehicle3DAnimatorGL:
             glRotatef(np.degrees(-angle), 0, 0, 1)
             glRotatef(np.degrees(banking_angle), 1, 0, 0)
 
-        # Car dimensions
-        car_width = 1.8
-        car_height = 0.6
-        
         # Set color
         glColor3f(*color)
-        
-        # Draw car body 
-        glBegin(GL_QUADS)
-        
-        #Initilise Vertices
-        # Bottom
-        glNormal3f(0, 0, -1)
-        glVertex3f(-self.b_m, -car_width/2, 0)
-        glVertex3f(self.a_m, -car_width/2, 0)
-        glVertex3f(self.a_m, car_width/2, 0)
-        glVertex3f(-self.b_m, car_width/2, 0)
-        
-        # Top
-        glNormal3f(0, 0, 1)
-        glVertex3f(-self.b_m, -car_width/2, car_height)
-        glVertex3f(-self.b_m, car_width/2, car_height)
-        glVertex3f(self.a_m, car_width/2, car_height)
-        glVertex3f(self.a_m, -car_width/2, car_height)
-        
-        # Front
-        glNormal3f(1, 0, 0)
-        glVertex3f(self.a_m, -car_width/2, 0)
-        glVertex3f(self.a_m, -car_width/2, car_height)
-        glVertex3f(self.a_m, car_width/2, car_height)
-        glVertex3f(self.a_m, car_width/2, 0)
-        
-        # Rear
-        glNormal3f(-1, 0, 0)
-        glVertex3f(-self.b_m, -car_width/2, 0)
-        glVertex3f(-self.b_m, car_width/2, 0)
-        glVertex3f(-self.b_m, car_width/2, car_height)
-        glVertex3f(-self.b_m, -car_width/2, car_height)
-        
-        # Left
-        glNormal3f(0, -1, 0)
-        glVertex3f(-self.b_m, -car_width/2, 0)
-        glVertex3f(-self.b_m, -car_width/2, car_height)
-        glVertex3f(self.a_m, -car_width/2, car_height)
-        glVertex3f(self.a_m, -car_width/2, 0)
-        
-        # Right
-        glNormal3f(0, 1, 0)
-        glVertex3f(-self.b_m, car_width/2, 0)
-        glVertex3f(self.a_m, car_width/2, 0)
-        glVertex3f(self.a_m, car_width/2, car_height)
-        glVertex3f(-self.b_m, car_width/2, car_height)
-        
-        glEnd()
+        glEnableClientState(GL_VERTEX_ARRAY)
+        glEnableClientState(GL_NORMAL_ARRAY)
+        glVertexPointer(3, GL_FLOAT, 0, self.car_vertices)
+        glNormalPointer(GL_FLOAT, 0, self.car_normals)
+        glDrawArrays(GL_QUADS, 0, len(self.car_vertices))
+        glDisableClientState(GL_NORMAL_ARRAY)
+        glDisableClientState(GL_VERTEX_ARRAY)
         
         glPopMatrix()
     
@@ -490,11 +447,11 @@ class Vehicle3DAnimatorGL:
         glDisable(GL_LIGHTING)
         glColor3f(*color)
         glLineWidth(2)
-        
-        glBegin(GL_LINE_STRIP)
-        for i in range(len(x_trail)):
-            glVertex3f(x_trail[i], y_trail[i], z_trail[i] + z_offset)
-        glEnd()
+        vertices = trail_geometry(x_trail, y_trail, z_trail, z_offset=z_offset)
+        glEnableClientState(GL_VERTEX_ARRAY)
+        glVertexPointer(3, GL_FLOAT, 0, vertices)
+        glDrawArrays(GL_LINE_STRIP, 0, len(vertices))
+        glDisableClientState(GL_VERTEX_ARRAY)
         
         glEnable(GL_LIGHTING)
     

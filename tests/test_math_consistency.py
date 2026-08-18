@@ -14,6 +14,7 @@ from animator_math import (
 from Stackelberg_HUD import DataProcessor
 from Stackleberg_3DAnimator import Vehicle3DAnimatorGL
 from phd_3d_animator.data import RaceData
+from phd_3d_animator.geometry import car_prism_geometry, trail_geometry
 
 
 LEADER = "LeaderFixed.mat"
@@ -123,6 +124,17 @@ class MathConsistencyTests(unittest.TestCase):
         np.testing.assert_allclose(race.leader_playback.x_display, animator.xL)
         np.testing.assert_allclose(race.leader_playback.y_display, animator.yL)
         np.testing.assert_allclose(race.leader_playback.z_display, animator.zL)
+
+    def test_geometry_builders_return_vertex_array_inputs(self):
+        vertices, normals = car_prism_geometry(1.32, 1.47)
+
+        self.assertEqual(vertices.shape, (24, 3))
+        self.assertEqual(normals.shape, (24, 3))
+        self.assertEqual(vertices.dtype, np.float32)
+        self.assertEqual(normals.dtype, np.float32)
+
+        trail = trail_geometry(np.array([1.0, 2.0]), np.array([3.0, 4.0]), np.array([5.0, 6.0]))
+        np.testing.assert_allclose(trail, np.array([[1.0, 3.0, 5.1], [2.0, 4.0, 6.1]], dtype=np.float32))
 
 
 if __name__ == "__main__":
