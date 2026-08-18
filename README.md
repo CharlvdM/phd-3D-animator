@@ -9,9 +9,19 @@ OpenGL 3D animation window.
 - `Stackelberg_Main.py` - integrated HUD and 3D animation runner.
 - `Stackelberg_HUD.py` - data processing and dashboard/HUD helpers.
 - `Stackleberg_3DAnimator.py` - Pygame/OpenGL 3D renderer.
+- `docs/` - technical notes, architecture audit, mathematical audit, and
+  improvement backlog.
 - `LeaderFixed.mat` - leader trajectory data.
 - `FollowerFixed.mat` - follower trajectory data.
 - `NASCAR_Track_Monge_v3.mat` - default track mesh/data file.
+
+## Technical Notes
+
+Start with [`docs/README.md`](docs/README.md). The current headline issue is
+that the 3D scene is not truly embedded in the HUD; it is a separate borderless
+Pygame window now positioned from the Matplotlib placeholder axes when possible.
+The docs also record the mathematical fixes made for yaw-rate scaling,
+wheelbase scaling, display-frame transforms, and Monge surface pose handling.
 
 ## Python Environment
 
@@ -59,7 +69,7 @@ If the virtual environment needs to be recreated:
 cd ~/Dev/PhD/phd-3D-animator
 python3 -m venv .venv
 .venv/bin/python -m pip install --upgrade pip
-.venv/bin/python -m pip install numpy scipy matplotlib pygame PyOpenGL PyOpenGL_accelerate
+.venv/bin/python -m pip install -r requirements.txt
 ```
 
 ## Running
@@ -100,34 +110,16 @@ LIBGL_ALWAYS_SOFTWARE=1 .venv/bin/python Stackelberg_Main.py LeaderFixed.mat Fol
 These are the current known issues observed on Pop!_OS:
 
 - Running with the system Python fails with `ModuleNotFoundError: No module named 'pygame'`. Use `.venv/bin/python`.
-- The previous Pygame/OpenGL context mismatch has been fixed by setting Linux
-display defaults before importing OpenGL:
-
-```text
-SDL_VIDEODRIVER=x11
-PYOPENGL_PLATFORM=glx
-```
-
-- A 12-second GUI test created the Pygame window and did not repeat:
-
-```text
-Pygame rendering error: Attempt to retrieve context when no valid context
-```
-
-- Matplotlib fullscreen currently reports:
-
-```text
-Fullscreen not available: bad argument "zoomed": must be normal, iconic, or withdrawn
-```
-
-This warning is not fatal.
-
-- Matplotlib also emits layout/colour warnings. These are not the current
-blocking issue.
+- The 3D view is still a borderless Pygame window over the HUD, not a real child
+  widget.
+- The Pygame window position is now derived from the realised HUD axes where the
+  active Matplotlib backend exposes window geometry, but this remains less
+  robust than a single Qt/Pygame application shell.
+- `VideoWriter.py` imports without OpenCV, but video export requires
+  `opencv-python`.
 
 ## Next Debugging Target
 
-The next cleanup target is Matplotlib fullscreen handling on Linux. The current
-code tries Tk's Windows-specific `state('zoomed')` path on a backend where the
-valid states are `normal`, `iconic`, and `withdrawn`. This warning is not fatal,
-but it should be handled more deliberately.
+The next cleanup target is replacing the mixed Matplotlib/Pygame top-level
+window arrangement with one real application framework, ideally PySide6/PyQt6
+with a `QOpenGLWidget` or a Pygame-only UI shell.
