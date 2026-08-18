@@ -278,6 +278,7 @@ class Vehicle3DAnimatorGL:
 
     def configure_opengl(self, width, height):
         """Configure OpenGL state for the active Pygame context."""
+        glViewport(0, 0, width, height)
         glEnable(GL_DEPTH_TEST)
         glEnable(GL_LIGHTING)
         glEnable(GL_LIGHT0)

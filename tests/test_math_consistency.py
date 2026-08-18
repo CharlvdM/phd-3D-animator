@@ -14,6 +14,7 @@ from animator_math import (
 from Stackelberg_HUD import DataProcessor
 from Stackleberg_3DAnimator import Vehicle3DAnimatorGL
 from phd_3d_animator.data import RaceData
+from phd_3d_animator.app import build_parser
 from phd_3d_animator.geometry import car_prism_geometry, trail_geometry
 from phd_3d_animator.geometry import normal_segments_from_poses, pose_axis_segments
 
@@ -143,6 +144,14 @@ class MathConsistencyTests(unittest.TestCase):
         np.testing.assert_allclose(axes[1], [2.0, 0.0, 0.0])
         normals = normal_segments_from_poses(np.array([pose]), stride=1, normal_scale=3.0)
         np.testing.assert_allclose(normals, np.array([[0.0, 0.0, 0.0], [0.0, 0.0, 3.0]], dtype=np.float32))
+
+    def test_single_window_cli_defaults_track_file(self):
+        args = build_parser().parse_args([LEADER, FOLLOWER])
+
+        self.assertEqual(args.leader_file, LEADER)
+        self.assertEqual(args.follower_file, FOLLOWER)
+        self.assertEqual(args.track_file, TRACK)
+        self.assertEqual(args.camera, "follow")
 
 
 if __name__ == "__main__":

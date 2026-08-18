@@ -26,16 +26,16 @@
 
 ## P1: Fix The HUD/3D Window Architecture
 
-1. Choose one application framework.
+1. Done for the default path: choose one application framework.
    - Recommended: PySide6/PyQt6 with a `QOpenGLWidget` and either Qt-native HUD
      widgets, pyqtgraph, or embedded Matplotlib.
-   - Acceptable simpler alternative: Pygame-only app with an OpenGL HUD overlay.
+   - Implemented simpler alternative: Pygame-only app shell.
 
-2. Partly done: reduce the fake embedding fragility.
-   - The current central HUD panel still does not contain a real widget.
-   - The Pygame window is now positioned from the actual placeholder axes when
-     backend geometry is available, with a fallback to the old ratios.
-   - True embedding still requires one GUI framework.
+2. Done for the default path: remove the fake embedding.
+   - `Stackelberg_Main.py` now launches the single-window package app.
+   - The old fake-embedded Matplotlib/Pygame class remains as legacy code.
+   - Still needed: decide whether to delete the legacy class or move it behind
+     an explicit legacy entry point.
 
 3. Centralise playback state.
    - One clock.
@@ -64,11 +64,19 @@
 
 ## P3: Clean Up Data And Code Structure
 
-1. Convert scripts into an importable Python package.
+1. Partly done: convert scripts into an importable Python package.
+   - Added `phd_3d_animator/` with app, data, maths, geometry, and rendering
+     modules.
+   - Still needed: move remaining legacy classes fully into the package.
 2. Done: add `requirements.txt`.
-3. Remove duplicate data loading from `Stackelberg_Main.py`,
+3. Partly done: remove duplicate data loading from `Stackelberg_Main.py`,
    `Stackleberg_3DAnimator.py`, and `VideoWriter.py`.
+   - Added typed `RaceData`, `TrackSurface`, and `VehicleTrajectory`.
+   - Still needed: make the legacy HUD and renderer consume `RaceData`
+     directly.
 4. Replace broad wildcard OpenGL imports with a renderer module boundary.
+   - Done for `Stackelberg_Main.py` and `VideoWriter.py`; OpenGL calls are now
+     delegated to the renderer.
 5. Done: fix stale `TelemetryDashboard.__init__()` constructor path.
 6. Done: fix duplicate/stale patterns in `VideoWriter.py`.
    - Removed the duplicate `process_data()` call.
@@ -88,13 +96,14 @@
 2. Add a timeline slider and frame counter.
 3. Add camera presets with visible buttons, not only keyboard controls.
 4. Add file-open flow and clear errors when `.mat` fields are missing.
-5. Add a diagnostics panel showing:
+5. Partly done: add diagnostics showing:
    - loaded files;
    - frame count;
    - time range;
    - coordinate frame;
    - detected display backend;
    - OpenGL renderer string.
+   - Added toggleable body-axis and surface-normal visual overlays with `V`.
 6. Support screenshots and video export from the same rendering path.
 
 ## P5: Nice-To-Have Visual Improvements

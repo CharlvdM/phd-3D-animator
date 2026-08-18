@@ -2,12 +2,16 @@
 
 ## Current Entry Points
 
-- `Stackelberg_Main.py`: integrated runner. It creates a Matplotlib HUD window,
-  creates a placeholder axes in the centre, then opens a second borderless
-  Pygame/OpenGL window for the 3D scene.
+- `Stackelberg_Main.py`: compatibility CLI. It now launches the package
+  single-window Pygame/OpenGL app.
+- `phd_3d_animator/app.py`: single-window Pygame application shell and event
+  loop.
+- `phd_3d_animator/data.py`: typed `TrackSurface`, `VehicleTrajectory`, and
+  `RaceData` objects.
 - `Stackleberg_3DAnimator.py`: standalone Pygame/OpenGL renderer.
 - `Stackelberg_HUD.py`: MATLAB data loading, telemetry calculation, Matplotlib
-  HUD widgets, and precomputed 2D animation data.
+  HUD widgets, and precomputed 2D animation data. This is now legacy/standalone
+  dashboard code rather than the default app shell.
 - `VideoWriter.py`: headless/export path. It duplicates substantial logic from
   the integrated runner, but its duplicate data-processing call and duplicate
   exception handler have been removed.
@@ -26,15 +30,23 @@ flowchart LR
     H --> G
 ```
 
-The duplicated loading is the central design smell. Both `DataProcessor` and
-`Vehicle3DAnimatorGL` read the MATLAB files and compute positions independently.
-They do not share a typed trajectory object. The coordinate maths has been
-factored into `animator_math.py`, but the file loading and playback assembly
-still happen in two places.
+The new package data path loads the MATLAB files into typed objects:
 
-## Why The Pygame Window Does Not Render Inside The HUD
+```mermaid
+flowchart LR
+    A["Leader/Follower .mat files"] --> B["RaceData"]
+    D["Track .mat file"] --> B
+    B --> C["Vehicle3DAnimatorGL"]
+    C --> E["Single Pygame/OpenGL window"]
+```
 
-The centre of the Matplotlib dashboard is only a placeholder axes:
+The legacy HUD and renderer classes still keep some older loading code for
+compatibility, but new code should prefer `RaceData`.
+
+## Legacy Fake Embedding
+
+The old integrated dashboard path did not truly embed Pygame. The centre of the
+Matplotlib dashboard was only a placeholder axes:
 
 - `Stackelberg_Main.py` defines `animation_pos` and `animation_size` for a
   Matplotlib axes.
@@ -45,8 +57,11 @@ The centre of the Matplotlib dashboard is only a placeholder axes:
   rectangle of the Matplotlib axes. If that fails, it falls back to the old
   layout ratios.
 
-So the Pygame scene is not a child widget of the HUD. It is a second top-level
-window that happens to be borderless and positioned over the centre panel.
+So the Pygame scene was not a child widget of the HUD. It was a second top-level
+window that happened to be borderless and positioned over the centre panel.
+
+The default CLI no longer uses that architecture. It now opens one Pygame window
+and lets the renderer own all OpenGL drawing.
 
 This is fragile because the location depends on:
 
@@ -92,23 +107,24 @@ The data layer should load each `.mat` file once and produce explicit objects:
 
 ### 2. Use One Windowing Framework
 
-The clean fix is to stop mixing a Matplotlib top-level window with a separate
-Pygame top-level window.
+The first clean fix is now implemented: stop mixing a Matplotlib top-level
+window with a separate Pygame top-level window.
 
-Recommended route:
+Further recommended route if a rich research GUI is needed:
 
 - Use PySide6/PyQt6 as the application shell.
 - Put the 3D scene in a `QOpenGLWidget`.
 - Put HUD plots in Qt widgets, a Matplotlib `FigureCanvasQTAgg`, or pyqtgraph.
 - Drive everything from one timer and one playback state.
 
-Alternative route:
+Implemented route:
 
 - Make Pygame the only window.
-- Render the HUD in Pygame/OpenGL, possibly with ImGui or a lightweight UI
-  overlay.
+- Render the 3D scene in that single window.
+- Next: render the HUD in Pygame/OpenGL, possibly with ImGui or a lightweight
+  UI overlay.
 
-The Qt route is better for research tooling because it gives native docking,
+The Qt route is still better for research tooling because it gives native docking,
 menus, file dialogs, resizing, and robust widget layout. The Pygame-only route
 is simpler if the goal is just a robust animation/video viewer.
 

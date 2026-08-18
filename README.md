@@ -1,12 +1,14 @@
 # PhD 3D Animator
 
 Python/OpenGL visualisation for Stackelberg racing data. The main entry point is
-`Stackelberg_Main.py`, which opens a Matplotlib HUD dashboard and a Pygame
-OpenGL 3D animation window.
+`Stackelberg_Main.py`, which now launches a single Pygame/OpenGL window instead
+of stacking a borderless Pygame window over a Matplotlib HUD.
 
 ## Project Files
 
-- `Stackelberg_Main.py` - integrated HUD and 3D animation runner.
+- `Stackelberg_Main.py` - compatibility CLI that launches the single-window app.
+- `phd_3d_animator/` - package modules for data, maths, geometry, rendering,
+  and the Pygame app.
 - `Stackelberg_HUD.py` - data processing and dashboard/HUD helpers.
 - `Stackleberg_3DAnimator.py` - Pygame/OpenGL 3D renderer.
 - `docs/` - technical notes, architecture audit, mathematical audit, and
@@ -17,11 +19,9 @@ OpenGL 3D animation window.
 
 ## Technical Notes
 
-Start with [`docs/README.md`](docs/README.md). The current headline issue is
-that the 3D scene is not truly embedded in the HUD; it is a separate borderless
-Pygame window now positioned from the Matplotlib placeholder axes when possible.
-The docs also record the mathematical fixes made for yaw-rate scaling,
-wheelbase scaling, display-frame transforms, and Monge surface pose handling.
+Start with [`docs/README.md`](docs/README.md). The current main path is now a
+single Pygame/OpenGL window. The older Matplotlib HUD code remains in the repo,
+but it is no longer used by `Stackelberg_Main.py`.
 
 ## Python Environment
 
@@ -80,6 +80,12 @@ Default run, using `NASCAR_Track_Monge_v3.mat` automatically:
 .venv/bin/python Stackelberg_Main.py LeaderFixed.mat FollowerFixed.mat
 ```
 
+Equivalent package entry point:
+
+```bash
+.venv/bin/python -m phd_3d_animator LeaderFixed.mat FollowerFixed.mat
+```
+
 Explicit track file:
 
 ```bash
@@ -98,9 +104,9 @@ LIBGL_ALWAYS_SOFTWARE=1 .venv/bin/python Stackelberg_Main.py LeaderFixed.mat Fol
 ## Controls
 
 - Space: play/pause.
-- `F`: toggle Matplotlib fullscreen.
-- `ESC` or `Q`: close the Pygame animation window.
+- `ESC` or `Q`: close the app.
 - `1` to `5`: camera modes in the Pygame window.
+- `V`: toggle body-axis and surface-normal diagnostics.
 - Mouse drag: rotate in free camera mode.
 - Mouse wheel: zoom.
 - `W`, `A`, `S`, `D`, `Q`, `E`: pan in free camera mode.
@@ -110,16 +116,13 @@ LIBGL_ALWAYS_SOFTWARE=1 .venv/bin/python Stackelberg_Main.py LeaderFixed.mat Fol
 These are the current known issues observed on Pop!_OS:
 
 - Running with the system Python fails with `ModuleNotFoundError: No module named 'pygame'`. Use `.venv/bin/python`.
-- The 3D view is still a borderless Pygame window over the HUD, not a real child
-  widget.
-- The Pygame window position is now derived from the realised HUD axes where the
-  active Matplotlib backend exposes window geometry, but this remains less
-  robust than a single Qt/Pygame application shell.
+- The old Matplotlib/Pygame fake-embedding code still exists in
+  `IntegratedAnimationFixed`, but it is now legacy code rather than the default
+  entry point.
 - `VideoWriter.py` imports without OpenCV, but video export requires
   `opencv-python`.
 
 ## Next Debugging Target
 
-The next cleanup target is replacing the mixed Matplotlib/Pygame top-level
-window arrangement with one real application framework, ideally PySide6/PyQt6
-with a `QOpenGLWidget` or a Pygame-only UI shell.
+The next cleanup target is building a richer HUD overlay inside the single
+Pygame window, then retiring or moving the legacy Matplotlib dashboard.

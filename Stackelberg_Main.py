@@ -947,25 +947,9 @@ class IntegratedAnimationFixed:
 
 
 def main():
-    import sys
+    from phd_3d_animator.app import main as run_single_window_app
 
-    if len(sys.argv) < 3:
-        print("Usage: python Stackelberg_Main.py <leader.mat> <follower.mat> [track.mat]")
-        sys.exit(1)
-    
-    leader_file = sys.argv[1]
-    follower_file = sys.argv[2]
-    track_file = sys.argv[3] if len(sys.argv) > 3 else "NASCAR_Track_Monge_v3.mat"
-    
-    try:
-        integrated_anim = IntegratedAnimationFixed(leader_file, follower_file, track_file)
-        integrated_anim.setup_dashboard()
-        integrated_anim.animate()
-        
-    except Exception as e:
-        print(f"Error: {e}")
-        import traceback
-        traceback.print_exc()
+    run_single_window_app()
 
 
 if __name__ == "__main__":

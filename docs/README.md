@@ -20,14 +20,15 @@ telemetry, tyre-force plots, and a Pygame/OpenGL 3D scene.
 
 The most important current conclusions are:
 
-- The central Pygame view is still not truly embedded in the HUD. It is a
-  separate borderless top-level window, now positioned from the actual
-  Matplotlib placeholder axes when the backend exposes that geometry.
-- Coordinate conversion is now centralised in `animator_math.py`, although data
-  loading is still duplicated between the HUD and the 3D renderer.
+- The default app now uses a single Pygame/OpenGL window, so it no longer
+  depends on fake Matplotlib/Pygame embedding.
+- Coordinate conversion is centralised in `animator_math.py`, and new code can
+  use typed `RaceData`, `TrackSurface`, and `VehicleTrajectory` objects.
 - The 2D path mapping `x = xc - n sin(psi)`, `y = yc + n cos(psi)` matches the
   MATLAB Monge coordinate mapping.
 - The 3D renderer deliberately flips `y` and `z` for display through explicit,
   tested model/display frame helpers.
 - The yaw-rate and wheelbase scaling errors in the HUD telemetry have been
   fixed and covered by regression tests.
+- The renderer includes toggleable visual diagnostics for body axes and sparse
+  surface normals.
