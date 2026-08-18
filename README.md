@@ -92,6 +92,14 @@ Pygame-only through the main script:
 .venv/bin/python Stackelberg_Main.py LeaderFixed.mat FollowerFixed.mat --pygame-only
 ```
 
+The 3D cars are deliberately scaled up for visibility. The default visual
+scale is `4.0`, and it does not affect the vehicle dynamics, slip angles, or
+wheelbase calculations:
+
+```bash
+.venv/bin/python Stackelberg_Main.py LeaderFixed.mat FollowerFixed.mat --car-scale 5
+```
+
 Explicit track file:
 
 ```bash

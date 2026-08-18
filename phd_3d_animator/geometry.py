@@ -5,15 +5,15 @@ from __future__ import annotations
 import numpy as np
 
 
-def car_prism_geometry(a_m, b_m, width_m=1.8, height_m=0.6):
+def car_prism_geometry(a_m, b_m, width_m=1.8, height_m=0.6, visual_scale=4.0):
     """Return vertices and normals for a simple rectangular vehicle prism."""
-    half_width = width_m / 2.0
-    x_front = a_m
-    x_rear = -b_m
+    half_width = width_m * visual_scale / 2.0
+    x_front = a_m * visual_scale
+    x_rear = -b_m * visual_scale
     y_left = -half_width
     y_right = half_width
     z_bottom = 0.0
-    z_top = height_m
+    z_top = height_m * visual_scale
 
     faces = [
         ((0.0, 0.0, -1.0), [(x_rear, y_left, z_bottom), (x_front, y_left, z_bottom), (x_front, y_right, z_bottom), (x_rear, y_right, z_bottom)]),

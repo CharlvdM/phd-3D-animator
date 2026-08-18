@@ -34,7 +34,7 @@ from phd_3d_animator.geometry import (
 )
 
 class Vehicle3DAnimatorGL:
-    def __init__(self, leader_file, follower_file, track_file):
+    def __init__(self, leader_file, follower_file, track_file, car_visual_scale=4.0):
         print("Loading vehicle data...")
         
         # Load vehicle simulation data
@@ -52,6 +52,7 @@ class Vehicle3DAnimatorGL:
         self.a = auxdata.a
         self.b = auxdata.b
         self.a_m, self.b_m = physical_wheelbase(auxdata)
+        self.car_visual_scale = car_visual_scale
         self.rwTrack = auxdata.track.rw / self.lengthscale
 
         # Track centerline
@@ -124,7 +125,11 @@ class Vehicle3DAnimatorGL:
         # VBO placeholders
         self.track_vbo = None
         self.boundary_vbos = None
-        self.car_vertices, self.car_normals = car_prism_geometry(self.a_m, self.b_m)
+        self.car_vertices, self.car_normals = car_prism_geometry(
+            self.a_m,
+            self.b_m,
+            visual_scale=self.car_visual_scale,
+        )
         self.follower_normal_segments = normal_segments_from_poses(
             self.poseF,
             stride=self.diagnostic_stride,

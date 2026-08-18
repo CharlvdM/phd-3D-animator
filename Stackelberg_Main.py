@@ -22,6 +22,7 @@ class IntegratedAnimationFixed:
         self.leader_file = leader_file
         self.follower_file = follower_file
         self.track_file = track_file
+        self.car_visual_scale = 4.0
         
         # Shared state
         self.current_frame = 0
@@ -282,7 +283,8 @@ class IntegratedAnimationFixed:
             self.pygame_animator = Vehicle3DAnimatorGL(
                 self.leader_file, 
                 self.follower_file, 
-                self.track_file
+                self.track_file,
+                car_visual_scale=self.car_visual_scale,
             )
 
             pygame_pos, pygame_size = self._animation_window_geometry()
@@ -963,16 +965,28 @@ def main():
         action="store_true",
         help="Run the single-window Pygame renderer without the Matplotlib HUD.",
     )
+    parser.add_argument(
+        "--car-scale",
+        type=float,
+        default=4.0,
+        help="Visual-only scale for the car blocks; does not affect vehicle maths.",
+    )
     args = parser.parse_args()
 
     if args.pygame_only:
         from phd_3d_animator.app import SingleWindowRaceApp
 
-        SingleWindowRaceApp(args.leader_file, args.follower_file, args.track_file).run()
+        SingleWindowRaceApp(
+            args.leader_file,
+            args.follower_file,
+            args.track_file,
+            car_scale=args.car_scale,
+        ).run()
         return
 
     try:
         integrated_anim = IntegratedAnimationFixed(args.leader_file, args.follower_file, args.track_file)
+        integrated_anim.car_visual_scale = args.car_scale
         integrated_anim.setup_dashboard()
         integrated_anim.animate()
     except Exception as e:

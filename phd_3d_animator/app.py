@@ -23,10 +23,16 @@ class SingleWindowRaceApp:
         fps=30,
         camera_mode="follow",
         diagnostics=False,
+        car_scale=4.0,
     ):
         self.size = size
         self.fps = fps
-        self.animator = Vehicle3DAnimatorGL(leader_file, follower_file, track_file)
+        self.animator = Vehicle3DAnimatorGL(
+            leader_file,
+            follower_file,
+            track_file,
+            car_visual_scale=car_scale,
+        )
         self.animator.camera_mode = camera_mode
         self.animator.show_diagnostics = diagnostics
         self.running = True
@@ -156,6 +162,12 @@ def build_parser():
         default="follow",
     )
     parser.add_argument("--diagnostics", action="store_true")
+    parser.add_argument(
+        "--car-scale",
+        type=float,
+        default=4.0,
+        help="Visual-only scale for the car blocks; does not affect vehicle maths.",
+    )
     return parser
 
 
@@ -169,5 +181,6 @@ def main(argv=None):
         fps=args.fps,
         camera_mode=args.camera,
         diagnostics=args.diagnostics,
+        car_scale=args.car_scale,
     )
     app.run()

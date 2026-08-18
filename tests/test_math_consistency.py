@@ -134,6 +134,7 @@ class MathConsistencyTests(unittest.TestCase):
         self.assertEqual(normals.shape, (24, 3))
         self.assertEqual(vertices.dtype, np.float32)
         self.assertEqual(normals.dtype, np.float32)
+        self.assertAlmostEqual(np.max(vertices[:, 0]) - np.min(vertices[:, 0]), (1.32 + 1.47) * 4.0)
 
         trail = trail_geometry(np.array([1.0, 2.0]), np.array([3.0, 4.0]), np.array([5.0, 6.0]))
         np.testing.assert_allclose(trail, np.array([[1.0, 3.0, 5.1], [2.0, 4.0, 6.1]], dtype=np.float32))
@@ -152,6 +153,7 @@ class MathConsistencyTests(unittest.TestCase):
         self.assertEqual(args.follower_file, FOLLOWER)
         self.assertEqual(args.track_file, TRACK)
         self.assertEqual(args.camera, "follow")
+        self.assertEqual(args.car_scale, 4.0)
 
 
 if __name__ == "__main__":
