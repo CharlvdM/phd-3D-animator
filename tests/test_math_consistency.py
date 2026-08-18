@@ -13,6 +13,7 @@ from animator_math import (
 )
 from Stackelberg_HUD import DataProcessor
 from Stackleberg_3DAnimator import Vehicle3DAnimatorGL
+from phd_3d_animator.data import RaceData
 
 
 LEADER = "LeaderFixed.mat"
@@ -110,7 +111,19 @@ class MathConsistencyTests(unittest.TestCase):
             np.testing.assert_allclose(rotation.T @ rotation, np.eye(3), atol=1.0e-10)
             self.assertAlmostEqual(np.linalg.det(rotation), 1.0, places=10)
 
+    def test_typed_race_data_matches_existing_renderer_arrays(self):
+        race = RaceData.from_files(LEADER, FOLLOWER, TRACK)
+        animator = Vehicle3DAnimatorGL(LEADER, FOLLOWER, TRACK)
+
+        np.testing.assert_allclose(race.t, animator.t)
+        np.testing.assert_allclose(race.follower_playback.x_model, animator.xF_model)
+        np.testing.assert_allclose(race.follower_playback.y_model, animator.yF_model)
+        np.testing.assert_allclose(race.follower_playback.z_model, animator.zF_model)
+        np.testing.assert_allclose(race.follower_playback.pose_display, animator.poseF)
+        np.testing.assert_allclose(race.leader_playback.x_display, animator.xL)
+        np.testing.assert_allclose(race.leader_playback.y_display, animator.yL)
+        np.testing.assert_allclose(race.leader_playback.z_display, animator.zL)
+
 
 if __name__ == "__main__":
     unittest.main()
-
